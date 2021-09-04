@@ -1,0 +1,3 @@
+(library
+ (name dream_inertia)
+ (public_name dream-inertia))
