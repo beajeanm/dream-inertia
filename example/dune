@@ -1,0 +1,3 @@
+(executable
+ (name example)
+ (libraries dream dream-inertia ppx_yojson_conv))
