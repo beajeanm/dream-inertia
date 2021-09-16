@@ -1,6 +1,7 @@
 let inertia =
-  Dream_inertia.init (fun app_div ->
-      Tyxml_html.(html (head (title (txt "Test")) []) (body [app_div])) )
+  Dream_inertia.init
+    ~base_url:Uri.(of_string "https://test.com/base")
+    ~version:None ~template:Index.render ()
 
 let full_page_request _ () =
   let request = Dream.request ~method_:`GET ~target:"/" "" in
@@ -30,11 +31,48 @@ let incremental_page_request _ () =
          (Dream.application_json, "true")
          (content_type, inertia_flag))
 
+let matching_version _ () =
+  let request =
+    Dream.request ~method_:`GET ~target:"/"
+      ~headers:[("X-Inertia-Version", "1")]
+      ""
+  in
+  let%lwt response =
+    Dream_inertia.inertia_versionning inertia
+      (fun _req -> Dream.empty `OK)
+      request
+  in
+  let satus = Dream.status_to_int @@ Dream.status response in
+  Lwt.return
+  @@ Alcotest.(check int "Regular answer" (Dream.status_to_int `OK) satus)
+
+let version_update _ () =
+  let request =
+    Dream.request ~method_:`GET ~target:"/mytarget"
+      ~headers:[("X-Inertia-Version", "older one")]
+      ""
+  in
+  let%lwt response =
+    Dream_inertia.inertia_versionning inertia
+      (fun _req -> Dream.empty `OK)
+      request
+  in
+  let satus = Dream.status_to_int @@ Dream.status response in
+  let path = Option.get @@ Dream.header "X-Inertia-Location" response in
+  Lwt.return
+  @@ Alcotest.(
+       check (pair int string) "Conflict redirect"
+         (Dream.status_to_int `Conflict, "https://test.com/base/mytarget")
+         (satus, path))
+
 let () =
   let open Alcotest_lwt in
   Lwt_main.run
   @@ run "inertia"
-       [ ( "inertia"
+       [ ( "Basic flow"
          , [ test_case "Full page request" `Quick full_page_request
            ; test_case "Incremental page request" `Quick
-               incremental_page_request ] ) ]
+               incremental_page_request ] )
+       ; ( "Versionning"
+         , [ test_case "Same version" `Quick matching_version
+           ; test_case "New version" `Quick version_update ] ) ]

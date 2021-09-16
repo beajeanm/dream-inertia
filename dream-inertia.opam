@@ -9,10 +9,9 @@ homepage: "https://git.jm-bea.net/beajeanm/ocaml-inertia"
 bug-reports: "https://git.jm-bea.net/beajeanm/ocaml-inertia"
 depends: [
   "dune" {>= "2.8"}
-  "tyxml" {>= "4.5.0"}
   "ocaml" {>= "4.12"}
   "dream"
-  "ppx_yojson_conv" {>= "v0.14"}
+  "yojson" {>= "1.7.0"}
   "alcotest" {with-test & >= "1.2.3"}
   "lwt_ppx" {>= "2.0.2" & with-test}
   "alcotest-lwt" {>= "1.4.0" & with-test}
