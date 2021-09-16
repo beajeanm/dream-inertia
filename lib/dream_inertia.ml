@@ -2,9 +2,10 @@ type data_page = {component: string; props: Yojson.Safe.t}
 
 type t =
   { template: Html_types.div Tyxml_html.elt -> Html_types.html Tyxml_html.elt
+  ; base_uri: string
   ; version: string option }
 
-let init template = {template; version= None}
+let init ~version ~base_uri ~template () = {template; base_uri; version}
 
 let data_page_to_json data_page path version =
   `Assoc
@@ -16,13 +17,13 @@ let data_page_to_json data_page path version =
 
 let get_version = function Some v -> v | None -> "1"
 
-let render_html {template; version} data_page path =
+let render_html inertia data_page path =
   let page_content =
     Format.asprintf {| <div id="app" data-page='%s'></div> |}
-    @@ data_page_to_json data_page path (get_version version)
+    @@ data_page_to_json data_page path (get_version inertia.version)
   in
   let app_div = Tyxml_html.Unsafe.data page_content in
-  let html = template app_div in
+  let html = inertia.template app_div in
   Dream.html @@ Format.asprintf "%a" (Tyxml_html.pp ()) html
 
 let render_json data_page path version =
@@ -36,3 +37,15 @@ let inertia_handler t fn request =
       render_json data path t.version
   | _ ->
       render_html t data path
+
+let inertia_versionning t handler =
+  let current_vesion = get_version t.version in
+  fun request ->
+    let request_version = Dream.header "X-Inertia-Version" request in
+    let target = Dream.target request in
+    let location = t.base_uri ^ target in
+    if
+      Option.is_some request_version
+      && not (String.equal current_vesion (Option.get request_version))
+    then Dream.empty ~headers:[("X-Inertia-Location", location)] `Conflict
+    else handler request

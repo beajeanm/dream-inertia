@@ -1,9 +1,10 @@
 let inertia =
-  Dream_inertia.init (fun app_div ->
+  Dream_inertia.init ~base_uri:"http://localhost:8080" ~version:None
+    ~template:(fun app_div ->
       Tyxml_html.(html (head (title (txt "Example")) []) (body [app_div])) )
+    ()
 
 let () =
-  (* ,"url":"/events/80","version":"c32b8e4965f418ad16eaebba1d4e960f"} *)
   let content =
     Yojson.Safe.from_string
       {json|
