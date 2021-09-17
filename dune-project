@@ -12,10 +12,9 @@
  (synopsis "Inertia handler from dream application")
  (description "Inertia handler from dream application")
  (depends
-  (tyxml (>= 4.5.0))
   (ocaml (>= 4.12))
   dream
-  (ppx_yojson_conv (>= v0.14))
+  (yojson (>= 1.7.0))
   (alcotest (and :with-test (>= 1.2.3)))
   (lwt_ppx (and (>= 2.0.2) :with-test))
   (alcotest-lwt (and (>= 1.4.0) :with-test))))

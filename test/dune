@@ -1,5 +1,11 @@
 (tests
  (names test)
- (libraries dream dream_inertia tyxml alcotest alcotest-lwt)
+ (libraries dream dream_inertia alcotest alcotest-lwt)
  (preprocess
   (pps lwt_ppx)))
+
+(rule
+ (targets index.ml)
+ (deps index.eml.html)
+ (action
+  (run dream_eml %{deps} --workspace %{workspace_root})))

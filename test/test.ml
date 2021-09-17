@@ -1,8 +1,7 @@
 let inertia =
-  Dream_inertia.init ~base_uri:"https://test.com" ~version:None
-    ~template:(fun app_div ->
-      Tyxml_html.(html (head (title (txt "Test")) []) (body [app_div])) )
-    ()
+  Dream_inertia.init
+    ~base_url:Uri.(of_string "https://test.com/base")
+    ~version:None ~template:Index.render ()
 
 let full_page_request _ () =
   let request = Dream.request ~method_:`GET ~target:"/" "" in
@@ -59,7 +58,7 @@ let version_update _ () =
   Lwt.return
   @@ Alcotest.(
        check (pair int string) "Conflict redirect"
-         (Dream.status_to_int `Conflict, "https://test.com/mytarget")
+         (Dream.status_to_int `Conflict, "https://test.com/base/mytarget")
          (satus, path))
 
 let () =

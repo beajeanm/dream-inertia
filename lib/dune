@@ -1,6 +1,4 @@
 (library
  (name dream_inertia)
  (public_name dream-inertia)
- (libraries dream tyxml)
- (preprocess
-  (pps ppx_yojson_conv)))
+ (libraries dream yojson))
