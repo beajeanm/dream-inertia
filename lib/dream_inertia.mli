@@ -4,8 +4,8 @@ type t
 
 val init :
      version:string option
-  -> base_uri:string
-  -> template:(Html_types.div Tyxml_html.elt -> Html_types.html Tyxml_html.elt)
+  -> base_url:Uri.t
+  -> template:(string -> string)
   -> unit
   -> t
 
