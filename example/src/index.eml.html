@@ -4,12 +4,12 @@ let render div_data =
 
   <head>
     <title>Example</title>
-    <script src="build/bundle.js"></script>
     <link rel="stylesheet" href="build/bundle.css"/>
     <link rel="icon" href="favicon.png"/>
 </head>
 
 <body>
   <%s! div_data %>
+  <script src="build/bundle.js" defer></script>
 </body>
 </html>
