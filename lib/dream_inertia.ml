@@ -42,8 +42,9 @@ let inertia_versionning t handler =
       let updated_path = Uri.path t.base_url ^ target in
       Uri.to_string @@ Uri.with_path t.base_url updated_path
     in
-    if
-      Option.is_some request_version
-      && not (String.equal current_vesion (Option.get request_version))
-    then Dream.empty ~headers:[("X-Inertia-Location", location)] `Conflict
-    else handler request
+    match (Dream.method_ request, request_version) with
+    | `GET, Some v ->
+        if String.equal v current_vesion then handler request
+        else Dream.empty ~headers:[("X-Inertia-Location", location)] `Conflict
+    | _ ->
+        handler request
