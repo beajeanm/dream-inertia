@@ -65,6 +65,21 @@ let version_update _ () =
          (Dream.status_to_int `Conflict, "https://test.com/base/mytarget")
          (satus, path))
 
+let only_redirect_get _ () =
+  let request =
+    Dream.request ~method_:`POST ~target:"/mytarget"
+      ~headers:[("X-Inertia-Version", "older one")]
+      ""
+  in
+  let%lwt response =
+    Dream_inertia.inertia_versionning inertia
+      (fun _req -> Dream.empty `OK)
+      request
+  in
+  let satus = Dream.status_to_int @@ Dream.status response in
+  Lwt.return
+  @@ Alcotest.(check int "Don't redirect post" (Dream.status_to_int `OK) satus)
+
 let () =
   let open Alcotest_lwt in
   Lwt_main.run
@@ -75,4 +90,5 @@ let () =
                incremental_page_request ] )
        ; ( "Versionning"
          , [ test_case "Same version" `Quick matching_version
-           ; test_case "New version" `Quick version_update ] ) ]
+           ; test_case "New version" `Quick version_update
+           ; test_case "POST no-versioning" `Quick only_redirect_get ] ) ]
