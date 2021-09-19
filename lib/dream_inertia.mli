@@ -5,7 +5,7 @@ type t
 val init :
      version:string option
   -> base_url:Uri.t
-  -> template:(string -> string)
+  -> template:(Yojson.Safe.t -> string)
   -> unit
   -> t
 
