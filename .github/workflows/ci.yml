@@ -31,6 +31,9 @@ jobs:
 
       - run: opam install . --deps-only --with-test
 
+      - run: cd example; npm install
+      - run: cd example; npm run dev-build
+
       - run: opam exec -- dune build
 
       - run: opam exec -- dune test --force
