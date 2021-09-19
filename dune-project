@@ -14,6 +14,8 @@
  (depends
   (ocaml (>= 4.12))
   dream
+  dream-livereload
+  crunch
   (yojson (>= 1.7.0))
   (alcotest (and :with-test (>= 1.2.3)))
   (lwt_ppx (and (>= 2.0.2) :with-test))

@@ -1,0 +1,20 @@
+(rule
+ (target build.ml)
+ (action
+  (run ocaml-crunch --mode plain --output build.ml build))
+ (deps
+  (source_tree build))
+ (alias assets))
+
+
+(rule
+ (target static.ml)
+ (action
+  (run ocaml-crunch --mode plain --output static.ml static))
+ (deps
+  (source_tree static))
+ (alias assets))
+
+(library
+  (name assets))
+
