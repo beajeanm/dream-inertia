@@ -9,7 +9,7 @@ let render div_data =
 </head>
 
 <body>
-  <%s! div_data %>
+  <div id="app" data-page='<%s Yojson.Safe.to_string div_data %>'></div>
   <script src="build/bundle.js" defer></script>
 </body>
 </html>

@@ -1,6 +1,7 @@
 type data_page = {component: string; props: Yojson.Safe.t}
 
-type t = {template: string -> string; base_url: Uri.t; version: string option}
+type t =
+  {template: Yojson.Safe.t -> string; base_url: Uri.t; version: string option}
 
 let init ~version ~base_url ~template () = {template; base_url; version}
 
@@ -10,21 +11,18 @@ let data_page_to_json data_page path version =
     ; ("props", data_page.props)
     ; ("url", `String path)
     ; ("version", `String version) ]
-  |> Yojson.Safe.to_string
 
 let get_version = function Some v -> v | None -> "1"
 
 let render_html inertia data_page path =
-  let page_content =
-    Format.asprintf {| <div id="app" data-page='%s'></div> |}
-    @@ data_page_to_json data_page path (get_version inertia.version)
-  in
   let headers = [("X-Inertia", "true")] in
-  Dream.html ~headers @@ inertia.template page_content
+  Dream.html ~headers @@ inertia.template
+  @@ data_page_to_json data_page path (get_version inertia.version)
 
 let render_json data_page path version =
   let headers = [("X-Inertia", "true")] in
-  Dream.json ~headers @@ data_page_to_json data_page path (get_version version)
+  Dream.json ~headers @@ Yojson.Safe.to_string
+  @@ data_page_to_json data_page path (get_version version)
 
 let inertia_handler t fn request =
   let data = fn request in
