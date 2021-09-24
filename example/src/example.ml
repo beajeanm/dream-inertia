@@ -1,6 +1,5 @@
 let inertia =
   Dream_inertia.init
-    ~base_url:Uri.(of_string "http://localhost:8080")
     ~version:None ~template:Index.render ()
 
 let crunch_build_loader _directory path _request =

@@ -1,9 +1,8 @@
 type data_page = {component: string; props: Yojson.Safe.t}
 
-type t =
-  {template: Yojson.Safe.t -> string; base_url: Uri.t; version: string option}
+type t = {template: Yojson.Safe.t -> string; version: string option}
 
-let init ~version ~base_url ~template () = {template; base_url; version}
+let init ~version ~template () = {template; version}
 
 let data_page_to_json data_page path version =
   `Assoc
@@ -36,13 +35,9 @@ let inertia_versionning t handler =
   fun request ->
     let request_version = Dream.header "X-Inertia-Version" request in
     let target = Dream.target request in
-    let location =
-      let updated_path = Uri.path t.base_url ^ target in
-      Uri.to_string @@ Uri.with_path t.base_url updated_path
-    in
     match (Dream.method_ request, request_version) with
     | `GET, Some v ->
         if String.equal v current_vesion then handler request
-        else Dream.empty ~headers:[("X-Inertia-Location", location)] `Conflict
+        else Dream.empty ~headers:[("X-Inertia-Location", target)] `Conflict
     | _ ->
         handler request
