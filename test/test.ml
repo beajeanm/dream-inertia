@@ -1,7 +1,4 @@
-let inertia =
-  Dream_inertia.init
-    ~base_url:Uri.(of_string "https://test.com/base")
-    ~version:None ~template:Index.render ()
+let inertia = Dream_inertia.init ~version:None ~template:Index.render ()
 
 let full_page_request _ () =
   let request = Dream.request ~method_:`GET ~target:"/" "" in
@@ -62,7 +59,7 @@ let version_update _ () =
   Lwt.return
   @@ Alcotest.(
        check (pair int string) "Conflict redirect"
-         (Dream.status_to_int `Conflict, "https://test.com/base/mytarget")
+         (Dream.status_to_int `Conflict, "/mytarget")
          (satus, path))
 
 let only_redirect_get _ () =
