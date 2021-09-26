@@ -43,3 +43,18 @@ let inertia_versionning t handler =
         else Dream.empty ~headers:[("X-Inertia-Location", target)] `Conflict
     | _ ->
         handler request
+
+let error_template t component debug_info suggested_response =
+  let is_json =
+    Option.map (String.equal Dream.application_json)
+    @@ Dream.header "Content-type" suggested_response
+  in
+  let debug_info = match debug_info with Some x -> x | _ -> "" in
+  let data_page =
+    {component; props= `Assoc [("debg_info", `String debug_info)]}
+  in
+  match is_json with
+  | Some true ->
+      render_json data_page "/" t.version
+  | _ ->
+      render_html t data_page "/"
