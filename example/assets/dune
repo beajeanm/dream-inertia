@@ -6,7 +6,6 @@
   (source_tree build))
  (alias assets))
 
-
 (rule
  (target static.ml)
  (action
@@ -16,5 +15,4 @@
  (alias assets))
 
 (library
-  (name assets))
-
+ (name assets))

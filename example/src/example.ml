@@ -1,6 +1,4 @@
-let inertia =
-  Dream_inertia.init
-    ~version:None ~template:Index.render ()
+let inertia = Dream_inertia.init ~version:None ~template:Index.render ()
 
 let crunch_build_loader _directory path _request =
   match Assets.Build.read path with
@@ -18,10 +16,10 @@ let crunch_static_loader _directory path _request =
 
 let () =
   let _ = Assets.Build.file_list in
-  let content = Yojson.Safe.from_string {json|
+  let props = Yojson.Safe.from_string {json|
   { "name" : "world"}
   |json} in
-  let data = Dream_inertia.{component= "Home"; props= content} in
+  let data = Dream_inertia.(create_page ~props "Home") in
   let intertia_handler =
     Dream_inertia.inertia_handler inertia (fun _req -> data)
   in

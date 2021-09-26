@@ -3,9 +3,8 @@ let inertia = Dream_inertia.init ~version:None ~template:Index.render ()
 let full_page_request _ () =
   let request = Dream.request ~method_:`GET ~target:"/" "" in
   let%lwt response =
-    Dream_inertia.inertia_handler inertia
-      (fun _req -> {component= "Test"; props= `Assoc []})
-      request
+    Dream_inertia.(
+      inertia_handler inertia (fun _req -> create_page "Test") request)
   in
   let content_type = Option.get @@ Dream.header "Content-Type" response in
   Lwt.return
@@ -16,9 +15,8 @@ let incremental_page_request _ () =
     Dream.request ~method_:`GET ~target:"/" ~headers:[("X-Inertia", "true")] ""
   in
   let%lwt response =
-    Dream_inertia.inertia_handler inertia
-      (fun _req -> {component= "Test"; props= `Assoc []})
-      request
+    Dream_inertia.(
+      inertia_handler inertia (fun _req -> create_page "Test") request)
   in
   let content_type = Option.get @@ Dream.header "Content-Type" response in
   let inertia_flag = Option.get @@ Dream.header "X-Inertia" response in
