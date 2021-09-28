@@ -13,6 +13,7 @@
  (description "Inertia handler from dream application")
  (depends
   (ocaml (>= 4.12))
+  ; For now, we depend on the latest dev version
   dream
   dream-livereload
   crunch

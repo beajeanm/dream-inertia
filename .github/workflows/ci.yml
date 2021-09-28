@@ -29,6 +29,8 @@ jobs:
           dune-cache: ${{ matrix.os != 'macos-latest' }}
           opam-depext-flags: --with-test
 
+      - run: opam pin add dream https://github.com/aantron/dream.git --dev-repo
+
       - run: opam install . --deps-only --with-test
 
       - run: cd example; npm install
