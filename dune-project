@@ -12,6 +12,7 @@
  (synopsis "Inertia handler from dream application")
  (description "Inertia handler from dream application")
  (depends
+  (base (>= v0.14.1))
   (ocaml (>= 4.12))
   dream
   dream-livereload

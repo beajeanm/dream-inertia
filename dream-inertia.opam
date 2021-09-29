@@ -9,6 +9,7 @@ homepage: "https://git.jm-bea.net/beajeanm/ocaml-inertia"
 bug-reports: "https://git.jm-bea.net/beajeanm/ocaml-inertia"
 depends: [
   "dune" {>= "2.8"}
+  "base" {>= "v0.14.1"}
   "ocaml" {>= "4.12"}
   "dream"
   "dream-livereload"
