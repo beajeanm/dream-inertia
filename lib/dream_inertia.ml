@@ -21,14 +21,38 @@ type t = {template: Yojson.Safe.t -> string; version: string option}
 
 let init ~version ~template () = {template; version}
 
-let data_page_to_json data_page path version =
+let data_page_to_json data_page path version (errors : Yojson.Safe.t option) =
+  let errors =
+    Option.value ~default:(`Assoc [])
+    @@ Option.map ~f:(fun err -> `Assoc [("errors", err)]) errors
+  in
+  let props = Yojson.Safe.Util.combine data_page.props errors in
   `Assoc
     [ ("component", `String data_page.component)
-    ; ("props", data_page.props)
+    ; ("props", props)
     ; ("url", `String path)
     ; ("version", `String version) ]
 
 let get_version t = Option.value t.version ~default:"1"
+
+let get_errors request =
+  let flash_messages = Dream.flash request in
+  let errors_flash_messages =
+    List.filter
+      ~f:(fun (category, _) -> String.is_prefix ~prefix:"errors." category)
+      flash_messages
+  in
+  let error_message_json value =
+    try Yojson.Safe.from_string value with _ -> `String value
+  in
+  let errors_messages =
+    List.map
+      ~f:(fun (category, value) ->
+        ( String.chop_prefix_if_exists ~prefix:"errors." category
+        , error_message_json value ) )
+      errors_flash_messages
+  in
+  match errors_messages with [] -> None | _ -> Some (`Assoc errors_messages)
 
 let is_inertia request =
   String.equal "true" @@ String.lowercase @@ Option.value ~default:""
@@ -36,19 +60,21 @@ let is_inertia request =
 
 let render t request data_page =
   let path = String.concat ~sep:"/" @@ List.concat [[""]; Dream.path request] in
+  let version = get_version t in
+  let errors = get_errors request in
   let render_html () =
     let data_page = add_header data_page "X-Inertia" "true" in
     let status = Option.value data_page.status ~default:`OK in
     Dream.html ~headers:data_page.headers ~status
     @@ t.template
-    @@ data_page_to_json data_page path (get_version t)
+    @@ data_page_to_json data_page path version errors
   in
   let render_json () =
     let data_page = add_header data_page "X-Inertia" "true" in
     let status = Option.value data_page.status ~default:`OK in
     Dream.json ~headers:data_page.headers ~status
     @@ Yojson.Safe.to_string
-    @@ data_page_to_json data_page path (get_version t)
+    @@ data_page_to_json data_page path version errors
   in
   if is_inertia request then render_json () else render_html ()
 
