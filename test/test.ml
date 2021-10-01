@@ -1,3 +1,27 @@
+(******************************************************************************)
+(* MIT License                                                                *)
+(*                                                                            *)
+(* Copyright (c) 2021 Jean-Michel Bea                                         *)
+(*                                                                            *)
+(* Permission is hereby granted, free of charge, to any person obtaining a    *)
+(* copy of this software and associated documentation files (the "Software"), *)
+(* to deal in the Software without restriction, including without limitation  *)
+(* the rights to use, copy, modify, merge, publish, distribute, sublicense,   *)
+(* and/or sell copies of the Software, and to permit persons to whom the      *)
+(* Software is furnished to do so, subject to the following conditions:       *)
+(*                                                                            *)
+(* The above copyright notice and this permission notice shall be included in *)
+(* all copies or substantial portions of the Software.                        *)
+(*                                                                            *)
+(* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR *)
+(* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,   *)
+(* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL    *)
+(* THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER *)
+(* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING    *)
+(* FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER        *)
+(* DEALINGS IN THE SOFTWARE.                                                  *)
+(******************************************************************************)
+
 open Base
 
 let inertia = Dream_inertia.init ~version:None ~template:Index.render ()
@@ -5,8 +29,11 @@ let inertia = Dream_inertia.init ~version:None ~template:Index.render ()
 let full_page_request _ () =
   let request = Dream.request ~method_:`GET ~target:"/" "" in
   let%lwt response =
-    Dream_inertia.(
-      inertia_handler inertia (fun _req -> create_page "Test") request)
+    let open Dream_inertia in
+    let inertia_middleware =
+      router inertia [(get "/" @@ fun _req -> Lwt.return @@ create_page "Test")]
+    in
+    inertia_middleware Dream.not_found request
   in
   let content_type =
     Option.value ~default:"No content type"
@@ -20,8 +47,11 @@ let incremental_page_request _ () =
     Dream.request ~method_:`GET ~target:"/" ~headers:[("X-Inertia", "true")] ""
   in
   let%lwt response =
-    Dream_inertia.(
-      inertia_handler inertia (fun _req -> create_page "Test") request)
+    let open Dream_inertia in
+    let inertia_middleware =
+      router inertia [(get "/" @@ fun _req -> Lwt.return @@ create_page "Test")]
+    in
+    inertia_middleware Dream.not_found request
   in
   let content_type =
     Option.value ~default:"No content type"
@@ -89,20 +119,6 @@ let only_redirect_get _ () =
   @@ Alcotest.(check int "Don't redirect post" (Dream.status_to_int `OK) satus)
 
 let get_errors request = Dream.flash request
-
-(*         Dream.put_flash "error.test" "An error" _req ; *)
-(* let error_message_json value = *)
-(*   try Yojson.Safe.from_string value with _ -> `String value *)
-(* in *)
-(* let errors_messages = *)
-(*   List.map ~f:(fun (category, value) -> *)
-(*       ( String.chop_prefix_if_exists ~prefix:"errors." category *)
-(*       , error_message_json value ) ) *)
-(*   @@ List.filter ~f:(fun (category, _) -> *)
-(*          String.is_prefix ~prefix:"errors." category ) *)
-(*   @@ Dream.flash request *)
-(* in *)
-(* match errors_messages with [] -> None | _ -> Some (`Assoc errors_messages) *)
 
 let () =
   let open Alcotest_lwt in
