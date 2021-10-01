@@ -1,3 +1,5 @@
+open Base
+
 let inertia = Dream_inertia.init ~version:None ~template:Index.render ()
 
 let full_page_request _ () =
@@ -6,7 +8,10 @@ let full_page_request _ () =
     Dream_inertia.(
       inertia_handler inertia (fun _req -> create_page "Test") request)
   in
-  let content_type = Option.get @@ Dream.header "Content-Type" response in
+  let content_type =
+    Option.value ~default:"No content type"
+    @@ Dream.header "Content-Type" response
+  in
   Lwt.return
   @@ Alcotest.(check string "Full app page" Dream.text_html content_type)
 
@@ -18,8 +23,13 @@ let incremental_page_request _ () =
     Dream_inertia.(
       inertia_handler inertia (fun _req -> create_page "Test") request)
   in
-  let content_type = Option.get @@ Dream.header "Content-Type" response in
-  let inertia_flag = Option.get @@ Dream.header "X-Inertia" response in
+  let content_type =
+    Option.value ~default:"No content type"
+    @@ Dream.header "Content-Type" response
+  in
+  let inertia_flag =
+    Option.value ~default:"No inertia flag" @@ Dream.header "X-Inertia" response
+  in
   Lwt.return
   @@ Alcotest.(
        check (pair string string) "Full app page"
@@ -53,7 +63,10 @@ let version_update _ () =
       request
   in
   let satus = Dream.status_to_int @@ Dream.status response in
-  let path = Option.get @@ Dream.header "X-Inertia-Location" response in
+  let path =
+    Option.value ~default:"No inertia location"
+    @@ Dream.header "X-Inertia-Location" response
+  in
   Lwt.return
   @@ Alcotest.(
        check (pair int string) "Conflict redirect"
@@ -74,6 +87,22 @@ let only_redirect_get _ () =
   let satus = Dream.status_to_int @@ Dream.status response in
   Lwt.return
   @@ Alcotest.(check int "Don't redirect post" (Dream.status_to_int `OK) satus)
+
+let get_errors request = Dream.flash request
+
+(*         Dream.put_flash "error.test" "An error" _req ; *)
+(* let error_message_json value = *)
+(*   try Yojson.Safe.from_string value with _ -> `String value *)
+(* in *)
+(* let errors_messages = *)
+(*   List.map ~f:(fun (category, value) -> *)
+(*       ( String.chop_prefix_if_exists ~prefix:"errors." category *)
+(*       , error_message_json value ) ) *)
+(*   @@ List.filter ~f:(fun (category, _) -> *)
+(*          String.is_prefix ~prefix:"errors." category ) *)
+(*   @@ Dream.flash request *)
+(* in *)
+(* match errors_messages with [] -> None | _ -> Some (`Assoc errors_messages) *)
 
 let () =
   let open Alcotest_lwt in
