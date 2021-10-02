@@ -20,22 +20,15 @@ let () =
   { "name" : "world"}
   |json} in
   let data = Dream_inertia.(create_page ~props "Home") in
-  let intertia_handler =
-    Dream_inertia.inertia_handler inertia (fun _req -> data)
+  let inertia_router =
+    Dream.router
+    @@ [ Dream_inertia.route_to_dream inertia
+           (Dream_inertia.get "/" @@ fun _req -> Lwt.return data) ]
   in
   Dream.run ~adjust_terminal:false
-  @@ Dream.logger
-  @@ Dream_livereload.(
-       inject_script
-       (* We are running webpack, then crunch before the ocaml build, so we need
-          a bit more time to reload *)
-         ~script:(default_script ~retry_interval_ms:1000 ~max_retry_ms:10000 ())
-         ())
+  @@ Dream.logger @@ inertia_router
   @@ Dream.router
-       [ Dream.get "/" intertia_handler
-       ; Dream_livereload.route ()
-       ; Dream.get "/favicon.png"
-         @@ Dream.from_filesystem "public" "favicon.png"
+       [ Dream.get "/favicon.png" @@ Dream.from_filesystem "public" "favicon.png"
        ; Dream.get "/build/**" @@ Dream.static ~loader:crunch_build_loader ""
        ; Dream.get "/static/**" @@ Dream.static ~loader:crunch_static_loader ""
        ]

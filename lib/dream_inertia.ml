@@ -1,23 +1,50 @@
+(******************************************************************************)
+(* MIT License                                                                *)
+(*                                                                            *)
+(* Copyright (c) 2021 Jean-Michel Bea                                         *)
+(*                                                                            *)
+(* Permission is hereby granted, free of charge, to any person obtaining a    *)
+(* copy of this software and associated documentation files (the "Software"), *)
+(* to deal in the Software without restriction, including without limitation  *)
+(* the rights to use, copy, modify, merge, publish, distribute, sublicense,   *)
+(* and/or sell copies of the Software, and to permit persons to whom the      *)
+(* Software is furnished to do so, subject to the following conditions:       *)
+(*                                                                            *)
+(* The above copyright notice and this permission notice shall be included in *)
+(* all copies or substantial portions of the Software.                        *)
+(*                                                                            *)
+(* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR *)
+(* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,   *)
+(* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL    *)
+(* THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER *)
+(* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING    *)
+(* FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER        *)
+(* DEALINGS IN THE SOFTWARE.                                                  *)
+(******************************************************************************)
+
 open Base
 
-let log = Dream.sub_log "inertia"
-
-type data_page =
+type page =
   { component: string
   ; props: Yojson.Safe.t
   ; status: Dream.status option
-  ; code: int option
   ; headers: (string * string) list }
 
-let create_page ?(props = `Assoc []) ?(status = None) ?(code = None)
-    ?(headers = []) component_name =
-  {component= component_name; props; status; code; headers}
+type inertia = {template: Yojson.Safe.t -> string; version: string option}
+
+type handler = Dream.request -> page Lwt.t
+
+type route = Dream.method_ * string * handler
+
+let log = Dream.sub_log "inertia"
+
+let create_page ?(props = `Assoc []) ?(status = None) ?(headers = [])
+    component_name =
+  {component= component_name; props; status; headers}
 
 let add_header data_page name value =
   let headers = List.concat [[(name, value)]; data_page.headers] in
   {data_page with headers}
-
-type t = {template: Yojson.Safe.t -> string; version: string option}
 
 let init ~version ~template () = {template; version}
 
@@ -33,7 +60,7 @@ let data_page_to_json data_page path version (errors : Yojson.Safe.t option) =
     ; ("url", `String path)
     ; ("version", `String version) ]
 
-let get_version t = Option.value t.version ~default:"1"
+let get_version inertia = Option.value inertia.version ~default:"1"
 
 let get_errors request =
   let flash_messages = Dream.flash request in
@@ -58,15 +85,15 @@ let is_inertia request =
   String.equal "true" @@ String.lowercase @@ Option.value ~default:""
   @@ Dream.header "X-Inertia" request
 
-let render t request data_page =
+let render inertia request data_page =
   let path = String.concat ~sep:"/" @@ List.concat [[""]; Dream.path request] in
-  let version = get_version t in
+  let version = get_version inertia in
   let errors = get_errors request in
   let render_html () =
     let data_page = add_header data_page "X-Inertia" "true" in
     let status = Option.value data_page.status ~default:`OK in
     Dream.html ~headers:data_page.headers ~status
-    @@ t.template
+    @@ inertia.template
     @@ data_page_to_json data_page path version errors
   in
   let render_json () =
@@ -78,12 +105,57 @@ let render t request data_page =
   in
   if is_inertia request then render_json () else render_html ()
 
-let inertia_handler t fn request =
-  let data = fn request in
-  render t request data
+let make_route method_ path handler = (method_, path, handler)
 
-let inertia_versionning t handler =
-  let current_vesion = get_version t in
+let get = make_route `GET
+
+let head = make_route `HEAD
+
+let post = make_route `POST
+
+let put = make_route `PUT
+
+let delete = make_route `DELETE
+
+let connect = make_route `CONNECT
+
+let options = make_route `OPTIONS
+
+let trace = make_route `TRACE
+
+let patch = make_route `PATCH
+
+let route_to_dream inertia route =
+  let to_dream_handler fn request =
+    let open Lwt.Infix in
+    fn request >>= fun data -> render inertia request data
+  in
+  let method_, path, handler = route in
+  let dream_handler = to_dream_handler handler in
+  match Dream.normalize_method method_ with
+  | `GET ->
+      Dream.get path dream_handler
+  | `HEAD ->
+      Dream.head path dream_handler
+  | `POST ->
+      Dream.post path dream_handler
+  | `PUT ->
+      Dream.put path dream_handler
+  | `DELETE ->
+      Dream.delete path dream_handler
+  | `CONNECT ->
+      Dream.connect path dream_handler
+  | `OPTIONS ->
+      Dream.options path dream_handler
+  | `TRACE ->
+      Dream.trace path dream_handler
+  | `PATCH ->
+      Dream.patch path dream_handler
+  | `Method m ->
+      failwith ("Unsupported method " ^ m)
+
+let inertia_versionning inertia handler =
+  let current_vesion = get_version inertia in
   fun request ->
     let request_version = Dream.header "X-Inertia-Version" request in
     let target = Dream.target request in
@@ -96,7 +168,7 @@ let inertia_versionning t handler =
     | _ ->
         handler request
 
-let error_template t component (error : Dream.error) debug_info
+let error_template inertia component (error : Dream.error) debug_info
     suggested_response =
   let status = Dream.status suggested_response in
   let code = Dream.status_to_int status in
@@ -106,6 +178,6 @@ let error_template t component (error : Dream.error) debug_info
       ~props:(`Assoc [("status", `Int code); ("debug_info", `String debug_info)])
       component
   in
-  let inertia_response request = render t request data_page in
+  let inertia_response request = render inertia request data_page in
   Option.value ~default:(Dream.empty status)
   @@ Option.map ~f:inertia_response error.request
