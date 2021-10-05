@@ -7,16 +7,18 @@
 (authors "Jean-Michel Bea")
 (maintainers "Jean-Michel Bea")
 (generate_opam_files true)
+(implicit_transitive_deps false)
 (package
  (name dream-inertia)
  (synopsis "Inertia handler from dream application")
  (description "Inertia handler from dream application")
  (depends
+  (ocaml (>= 4.11))
   (base (>= v0.14.1))
-  (ocaml (>= 4.12))
-  dream
-  dream-livereload
-  crunch
+  (ocamlformat (>= 0.19.0))
+  (dream (>= 1.0.0~alpha2))
+  (lwt (>= 5.4.0))
+  (crunch (>= 3.2.0))
   (yojson (>= 1.7.0))
   (alcotest (and :with-test (>= 1.2.3)))
   (lwt_ppx (and (>= 2.0.2) :with-test))

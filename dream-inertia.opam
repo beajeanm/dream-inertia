@@ -9,11 +9,12 @@ homepage: "https://git.jm-bea.net/beajeanm/ocaml-inertia"
 bug-reports: "https://git.jm-bea.net/beajeanm/ocaml-inertia"
 depends: [
   "dune" {>= "2.8"}
+  "ocaml" {>= "4.11"}
   "base" {>= "v0.14.1"}
-  "ocaml" {>= "4.12"}
-  "dream"
-  "dream-livereload"
-  "crunch"
+  "ocamlformat" {>= "0.19.0"}
+  "dream" {>= "1.0.0~alpha2"}
+  "lwt" {>= "5.4.0"}
+  "crunch" {>= "3.2.0"}
   "yojson" {>= "1.7.0"}
   "alcotest" {with-test & >= "1.2.3"}
   "lwt_ppx" {>= "2.0.2" & with-test}

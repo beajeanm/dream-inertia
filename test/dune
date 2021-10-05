@@ -1,6 +1,14 @@
 (tests
  (names test)
- (libraries dream dream_inertia alcotest alcotest-lwt)
+ (libraries
+  dream
+  dream_inertia
+  base
+  yojson
+  lwt
+  lwt.unix
+  alcotest
+  alcotest-lwt)
  (preprocess
   (pps lwt_ppx)))
 

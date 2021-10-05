@@ -16,7 +16,7 @@ jobs:
         os:
           - ubuntu-latest
         ocaml-compiler:
-          - ocaml-base-compiler.4.12.0
+          - ocaml-base-compiler.4.11.0
 
     steps:
       - name: Checkout code
@@ -27,10 +27,14 @@ jobs:
         with:
           ocaml-compiler: ${{ matrix.ocaml-compiler }}
           dune-cache: ${{ matrix.os != 'macos-latest' }}
-          opam-depext-flags: --with-test
+          opam-pin: true
+          opam-depext: true
 
-      - run: opam pin add dream https://github.com/aantron/dream.git --dev-repo
-      - run: opam install . --deps-only --with-test
+      - name: Pin dream
+        run: opam pin add dream https://github.com/aantron/dream.git --dev-repo --no-action
+
+      - name: Install dependencies
+        run: opam install . --deps-only --with-test
 
       - run: cd example; npm install
       - run: cd example; npm run dev-build

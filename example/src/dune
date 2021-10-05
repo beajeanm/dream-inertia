@@ -1,6 +1,6 @@
 (executable
  (name example)
- (libraries dream dream-livereload dream-inertia assets))
+ (libraries dream dream-inertia assets))
 
 (rule
  (targets index.ml)
