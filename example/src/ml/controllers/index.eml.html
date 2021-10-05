@@ -1,0 +1,28 @@
+let dev_scripts =
+  <script type="module" src="http://127.0.0.1:3000/@vite/client" defer></script>
+  <script type="module" src="http://127.0.0.1:3000/src/js/main.ts" defer></script>
+
+let prod_scripts = 
+  <%s! Manifest.js "src/js/main.ts" %>
+  <%s! Manifest.css "src/js/main.ts" %>
+
+let script = function
+  | true -> dev_scripts
+  | false -> prod_scripts
+
+let render development div_data =
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Example</title>
+    <link rel="icon" href="static/favicon.png"/>
+    <%s! script development %>
+  </head>
+
+  <body>
+    <div id="app" data-page='<%s Yojson.Safe.to_string div_data %>'></div>
+  </body>
+</html>
