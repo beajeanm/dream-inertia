@@ -1,30 +1,22 @@
-<script>
-	export let name;
+<style>
+</style>
+
+<script lang="ts">
+export let name: string;
+
+import { Link } from "@inertiajs/inertia-svelte";
+import Layout from "./Layout.svelte";
 </script>
 
-<main>
-	<h1>Hello {name}!</h1>
-	<p>Visit the <a href="https://svelte.dev/tutorial">Svelte tutorial</a> to learn how to build Svelte apps.</p>
-</main>
-
-<style>
-	main {
-		text-align: center;
-		padding: 1em;
-		max-width: 240px;
-		margin: 0 auto;
-	}
-
-	h1 {
-		color: #ff3e00;
-		text-transform: uppercase;
-		font-size: 4em;
-		font-weight: 100;
-	}
-
-	@media (min-width: 640px) {
-		main {
-			max-width: none;
-		}
-	}
-</style>
+<Layout>
+  <div class="hero-body">
+    <div class="container has-text-centred is-centered">
+      <h1 class="title is-capitalized has-text-primary">Hello {name}!</h1>
+      <p>
+        Visit the <Link href="https://svelte.dev/tutorial"
+          >Svelte tutorial</Link> to learn how to build Svelte apps.
+      </p>
+      <div></div>
+    </div>
+  </div>
+</Layout>

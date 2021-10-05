@@ -1,9 +1,1 @@
-(executable
- (name example)
- (libraries dream dream-inertia assets))
-
-(rule
- (targets index.ml)
- (deps index.eml.html)
- (action
-  (run dream_eml %{deps} --workspace %{workspace_root})))
+(vendored_dirs vendor)

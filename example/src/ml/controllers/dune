@@ -1,0 +1,7 @@
+(rule
+ (targets index.ml)
+ (deps index.eml.html)
+ (action
+  (with-stdout-to
+   %{null}
+   (run dream_eml %{deps} --workspace %{workspace_root}))))

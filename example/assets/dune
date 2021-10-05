@@ -1,7 +1,9 @@
 (rule
  (target build.ml)
  (action
-  (run ocaml-crunch --mode plain --output build.ml build))
+  (with-stdout-to
+   %{null}
+   (run ocaml-crunch --mode plain --output build.ml build)))
  (deps
   (source_tree build))
  (alias assets))
@@ -9,7 +11,9 @@
 (rule
  (target static.ml)
  (action
-  (run ocaml-crunch --mode plain --output static.ml static))
+  (with-stdout-to
+   %{null}
+   (run ocaml-crunch --mode plain --output static.ml static)))
  (deps
   (source_tree static))
  (alias assets))

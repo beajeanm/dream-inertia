@@ -1,0 +1,8 @@
+@charset "utf-8";
+
+@import "bulma/sass/utilities/initial-variables.sass";
+
+$primary: $blue;
+
+// Import only what you need from Bulma
+@import "node_modules/bulma/bulma";
