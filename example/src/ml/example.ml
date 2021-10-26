@@ -38,4 +38,5 @@ let () =
       (Dream.error_template @@ Dream_inertia.error_template inertia "Error")
     ~debug:is_dev ~adjust_terminal:false ~interface:"0.0.0.0"
   @@ Dream.logger @@ Dream.flash_messages @@ Dream.memory_sessions
+  @@ Dream_inertia.axios_csrf @@ Dream_inertia.axios_csrf_validator
   @@ Dream.router routes @@ Dream.not_found

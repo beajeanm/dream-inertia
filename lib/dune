@@ -1,4 +1,5 @@
 (library
  (name dream_inertia)
  (public_name dream-inertia)
- (libraries dream yojson base lwt))
+ (libraries dream yojson base lwt)
+ (preprocess (pps lwt_ppx)))

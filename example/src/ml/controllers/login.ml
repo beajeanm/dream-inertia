@@ -24,10 +24,8 @@
 
 open Base
 
-let get req =
-  let token = Dream.csrf_token req in
-  let data = `Assoc [("csrf", `Assoc [("token", `String token)])] in
-  Lwt.return @@ Dream_inertia.create_page ~props:data "Login"
+let get _req =
+  Lwt.return @@ Dream_inertia.create_page ~props:(`Assoc []) "Login"
 
 let process_form req =
   let not_empty inputs key =
@@ -50,15 +48,6 @@ let process_form req =
   let json_values =
     List.Assoc.map ~f:json_string @@ Yojson.Basic.Util.to_assoc json
   in
-  let token = List.Assoc.find_exn ~equal:String.equal json_values "token" in
-  let verify_token handler =
-    match%lwt Dream.verify_csrf_token req token with
-    | `Ok ->
-        handler ()
-    | _ ->
-        Dream.put_flash "errors.general" "The page has expired" req ;
-        Dream.redirect req "/login"
-  in
   let handler () =
     let values =
       Result.combine_errors
@@ -74,7 +63,7 @@ let process_form req =
           errors ;
         Dream.redirect req "/login"
   in
-  verify_token handler
+  handler ()
 
 let routes inertia =
   [ Dream_inertia.route_to_dream inertia @@ Dream_inertia.get "/login" get

@@ -17,7 +17,7 @@ depends: [
   "crunch" {>= "3.2.0"}
   "yojson" {>= "1.7.0"}
   "alcotest" {with-test & >= "1.2.3"}
-  "lwt_ppx" {>= "2.0.2" & with-test}
+  "lwt_ppx" {>= "2.0.2"}
   "alcotest-lwt" {>= "1.4.0" & with-test}
   "odoc" {with-doc}
 ]

@@ -21,5 +21,5 @@
   (crunch (>= 3.2.0))
   (yojson (>= 1.7.0))
   (alcotest (and :with-test (>= 1.2.3)))
-  (lwt_ppx (and (>= 2.0.2) :with-test))
+  (lwt_ppx (>= 2.0.2))
   (alcotest-lwt (and (>= 1.4.0) :with-test))))
