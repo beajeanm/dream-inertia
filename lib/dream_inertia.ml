@@ -154,6 +154,48 @@ let route_to_dream inertia route =
   | `Method m ->
       failwith ("Unsupported method " ^ m)
 
+let axios_csrf (handler : Dream.handler) request =
+  let token_name = "inertia_csrf" in
+  let csrf_cookie_name = "XSRF-TOKEN" in
+  match Dream.normalize_method (Dream.method_ request) with
+  | `GET ->
+      let%lwt csrf_token =
+        match Dream.session token_name request with
+        | Some token ->
+            Lwt.return token
+        | None ->
+            let token = Dream.csrf_token request in
+            let%lwt () = Dream.put_session token_name token request in
+            Lwt.return token
+      in
+      let%lwt response = handler request in
+      let response =
+        Dream.set_cookie ~http_only:false ~encrypt:false csrf_cookie_name
+          csrf_token request response
+      in
+      Lwt.return response
+  | _ ->
+      handler request
+
+let axios_csrf_validator handler request =
+  let csrf_header_name = "X-XSRF-TOKEN" in
+  match Dream.normalize_method (Dream.method_ request) with
+  | `POST | `PATCH | `PUT | `DELETE -> (
+      let csrf_token =
+        Dream.header csrf_header_name request |> Option.value ~default:""
+      in
+      match%lwt Dream.verify_csrf_token request csrf_token with
+      | `Ok ->
+          handler request
+      | `Expired _ ->
+          Dream.put_flash "errors.general" "The page has expired." request ;
+          let path = Dream.path request |> Dream.to_path in
+          Dream.redirect request path
+      | _ ->
+          failwith "Invalid CSRF token" )
+  | _ ->
+      handler request
+
 let inertia_versionning inertia handler =
   let current_vesion = get_version inertia in
   fun request ->

@@ -105,6 +105,12 @@ val patch : string -> handler -> route
 
     {[ Dream.patch "/home" home_template ]} *)
 
+val axios_csrf : Dream.middleware
+(** Middleware to set csrf token for the axios UI library. *)
+
+val axios_csrf_validator : Dream.middleware
+(** Middleware to verify csrf token from the axios UI library. *)
+
 val inertia_versionning : inertia -> Dream.middleware
 (** Middleware to manage assets versioning. See
     {{:https://inertiajs.com/asset-versioning} Asset versioning}*)
