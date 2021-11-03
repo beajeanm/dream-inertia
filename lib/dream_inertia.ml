@@ -157,16 +157,26 @@ let route_to_dream inertia route =
 let axios_csrf (handler : Dream.handler) request =
   let token_name = "inertia_csrf" in
   let csrf_cookie_name = "XSRF-TOKEN" in
+  let mint_new_token () =
+    let token = Dream.csrf_token request in
+    let%lwt () = Dream.put_session token_name token request in
+    Lwt.return token
+  in
+  let ensure_valid_token token =
+    match%lwt Dream.verify_csrf_token request token with
+    | `Ok ->
+        Lwt.return token
+    | _ ->
+        mint_new_token ()
+  in
   match Dream.normalize_method (Dream.method_ request) with
   | `GET ->
       let%lwt csrf_token =
         match Dream.session token_name request with
         | Some token ->
-            Lwt.return token
+            ensure_valid_token token
         | None ->
-            let token = Dream.csrf_token request in
-            let%lwt () = Dream.put_session token_name token request in
-            Lwt.return token
+            mint_new_token ()
       in
       let%lwt response = handler request in
       let response =
