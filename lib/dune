@@ -1,0 +1,13 @@
+(library
+ (name dream_inertia)
+ (libraries dream yojson))
+
+
+(rule
+ (targets assets.ml)
+ (deps
+  (source_tree ../view/dist/))
+ (action
+  (with-stdout-to
+   %{null}
+   (run %{bin:ocaml-crunch} -m plain ../view/dist/ -o assets.ml))))
