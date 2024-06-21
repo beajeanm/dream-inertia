@@ -1,0 +1,3 @@
+(executable
+ (name main)
+ (libraries dream_inertia dream example_lib))

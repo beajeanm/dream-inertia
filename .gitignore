@@ -2,5 +2,5 @@
 _build
 _opam
 .env
-view/node_modules
-view/dist
+example/view/node_modules
+example/view/dist

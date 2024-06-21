@@ -1,0 +1,10 @@
+(lang dune 3.15)
+
+(name dream_inertia_example)
+
+(authors "Jean-Michel Bea")
+
+(maintainers "Jean-Michel Bea")
+
+(license MIT)
+

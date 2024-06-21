@@ -1,4 +1,5 @@
 open Dream_inertia
+open Example_lib
 
 let routes =
   let counter = ref 0 in
@@ -17,7 +18,7 @@ let routes =
       ~lazy_props:[ ("message", Lazy.from_fun generate_message) ]
       ~url:"/" ()
   in
-  let about = page ~component:"About"  ~url:"/" () in
+  let about = page ~component:"About" ~url:"/" () in
   let count () =
     incr counter;
     home !counter

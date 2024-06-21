@@ -5,22 +5,26 @@
 (generate_opam_files true)
 
 (source
- (github username/reponame))
+ (github beajeanm/dream-inertia))
 
-(authors "Author Name")
+(authors "Jean-Michel Bea")
 
-(maintainers "Maintainer Name")
+(maintainers "Jean-Michel Bea")
 
-(license LICENSE)
+(license MIT)
 
 (documentation https://url/to/documentation)
 
 (package
  (name dream_inertia)
- (synopsis "A short synopsis")
- (description "A longer description")
- (depends ocaml dune)
+ (synopsis "A dream adapter for Inertia.js")
+ (description "A dream adapter for Inertia.js")
+ (depends
+  (yojson
+   (>= 2.2.1))
+  (dream
+   (>= 1.0.0~alpha6))
+  ocaml
+  dune)
  (tags
   (topics "to describe" your project)))
-
-; See the complete stanza docs at https://dune.readthedocs.io/en/stable/dune-files.html#dune-project

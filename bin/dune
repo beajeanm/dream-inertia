@@ -1,4 +1,0 @@
-(executable
- (public_name dream_inertia)
- (name main)
- (libraries dream_inertia dream))
