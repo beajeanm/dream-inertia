@@ -1,6 +1,6 @@
 (library
  (name dream_inertia)
- (libraries dream yojson))
+ (libraries dream yojson containers))
 
 
 (rule

@@ -1,14 +1,14 @@
 <script setup>
 import { Link } from "@inertiajs/vue3";
 
-defineProps({ counter: Number })
+defineProps({ counter: Number, message: String });
 </script>
 
 <template>
   <header>
     <div class="wrapper">
-      <h1>You've clicked: {{ counter }}</h1>
-      <Link href="/count">Click here</Link>
+      <h1>{{ message }} {{ counter }}</h1>
+      <Link href="/count" :only="['counter', 'other']">Click here</Link>
       <Link href="/about">About</Link>
     </div>
   </header>

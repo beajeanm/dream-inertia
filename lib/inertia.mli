@@ -6,7 +6,8 @@ val make : version:string -> js_path:string -> css_path:string -> unit -> t
 
 val page :
   component:string ->
-  props:Yojson.Safe.t ->
+  ?props:(string * Yojson.Safe.t) list ->
+  ?lazy_props:(string * Yojson.Safe.t Lazy.t) list ->
   url:string ->
   ?headers:(string * string) list ->
   ?status:Dream.status ->
