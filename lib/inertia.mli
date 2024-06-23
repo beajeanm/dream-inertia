@@ -10,13 +10,13 @@ val page :
   ?props:(string * Yojson.Safe.t) list ->
   ?lazy_props:(string * Yojson.Safe.t Lazy.t) list ->
   url:string ->
-  ?headers:(string * string) list ->
-  ?status:Dream.status ->
   unit ->
   page
 
-val with_status : page -> Dream.status -> page
-val get : t -> string -> handler -> Dream.route
-val post : t -> string -> handler -> Dream.route
-val put : t -> string -> handler -> Dream.route
-val delete : t -> string -> handler -> Dream.route
+val inertia_response :
+  t ->
+  ?headers:(string * string) list ->
+  ?status:Dream.status ->
+  (unit -> page) ->
+  Dream.request ->
+  Dream.response Lwt.t

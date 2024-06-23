@@ -7,11 +7,7 @@ type page = {
   props : (string * Yojson.Safe.t) list;
   lazy_props : (string * Yojson.Safe.t Lazy.t) list;
   url : string;
-  headers : (string * string) list;
-  status : Dream.status;
 }
-
-let with_status page status = { page with status }
 
 type handler = Dream.request -> page Lwt.t
 
@@ -38,7 +34,6 @@ let set_location request response =
 let set_csrf_cookie request response =
   let valid_for = Ptime.Span.of_float_s 3600. |> Option.get in
   let csrf = Dream.csrf_token request in
-  Dream.log "Setting token <%s>" csrf;
   Dream.set_cookie ~encrypt:false ~http_only:false
     ~expires:
       Ptime.(
@@ -77,14 +72,11 @@ let middleware inertia inner_handler request =
       is_inertia_request request,
       String.equal version inertia.version )
   with
-  | `GET, true, false ->
-      Dream.log "Received stale version '%s'" version;
-      stale_response request
+  | `GET, true, false -> stale_response request
   | _, _, _ -> process_response request inner_handler
 
-let page ~component ?(props = []) ?(lazy_props = []) ~url ?(headers = [])
-    ?(status = `OK) () =
-  { component; props; lazy_props; url; headers; status }
+let page ~component ?(props = []) ?(lazy_props = []) ~url () =
+  { component; props; lazy_props; url }
 
 let filter_keys assoc predicate =
   List.filter (fun (key, _) -> predicate key) assoc
@@ -117,7 +109,7 @@ let page_to_string version page props_filter =
   in
   Yojson.Safe.to_string json
 
-let full_page page ~version ~js ~css =
+let full_page string_of_page ~js ~css =
   Format.asprintf
     {|
 <!doctype html>
@@ -139,7 +131,7 @@ let full_page page ~version ~js ~css =
 </html>
 |}
     css
-    (Dream.html_escape @@ page_to_string version page None)
+    (Dream.html_escape @@ string_of_page)
     js
 
 let include_filter req =
@@ -156,28 +148,17 @@ let exclude_filter req =
       Some (fun prop -> not (List.mem prop fields))
   | _ -> None
 
-let props_filter req =
-  match include_filter req with Some _ as f -> f | None -> exclude_filter req
+let props_filter request =
+  match include_filter request with
+  | Some _ as f -> f
+  | None -> exclude_filter request
 
-let to_dream_handler inertia handler =
-  let open Lwt.Syntax in
-  fun req ->
-    let* page = handler req in
-    let status = page.status in
-    let headers = ("X-Inertia", "true") :: page.headers in
-    if is_inertia_request req then
-      Dream.json ~status ~headers
-      @@ page_to_string inertia.version page (props_filter req)
-    else
-      Dream.html ~status ~headers
-      @@ full_page page ~version:inertia.version ~css:inertia.css_path
-           ~js:inertia.js_path
-
-let to_dream_method delegate inertia path handler =
-  let handler = to_dream_handler inertia handler in
-  delegate path handler
-
-let get = to_dream_method Dream.get
-let post = to_dream_method Dream.post
-let put = to_dream_method Dream.put
-let delete = to_dream_method Dream.delete
+let inertia_response inertia ?(headers = []) ?(status = `OK) handler request =
+  let filter = props_filter request in
+  let page = handler () in
+  let headers = ("X-Inertia", "true") :: headers in
+  let page_data = page_to_string inertia.version page filter in
+  if is_inertia_request request then Dream.json ~headers ~status page_data
+  else
+    Dream.html ~status ~headers
+    @@ full_page page_data ~css:inertia.css_path ~js:inertia.js_path

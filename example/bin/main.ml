@@ -56,7 +56,7 @@ module Controller = struct
     let users_json = `List (List.map user_to_json !users) in
     page ~component:"Users" ~props:[ ("users", users_json) ] ~url:"/users" ()
 
-  let add_user request =
+  let add_user inertia request =
     let open Lwt.Syntax in
     let csrf_token = Dream.header request "X-Xsrf-Token" |> Option.get in
     let cookie_token =
@@ -66,23 +66,23 @@ module Controller = struct
     let* csrf_result = Dream.verify_csrf_token request csrf_token in
     match (csrf_result, String.equal cookie_token csrf_token) with
     | `Ok, true ->
-        let+ json_body = Dream.body request in
+        let* json_body = Dream.body request in
         let user = json_to_user (Yojson.Safe.from_string json_body) in
         Model.add_user user;
-        page ~component:"Users" ~url:"/users" ~status:`Found ()
-    | __ ->
-        Lwt.return
-        @@ page ~component:"Users" ~url:"/users" ~status:`Bad_Request ()
+        Inertia.inertia_response inertia ~status:`Found
+          (fun () -> page ~component:"Users" ~url:"/users" ())
+          request
+    | __ -> Dream.empty `Bad_Request
 end
 
 let routes inertia =
   let open Controller in
   [
-    Inertia.get inertia "/" (fun _ -> Lwt.return (home_page ()));
-    Inertia.get inertia "/about" (fun _ -> Lwt.return about_page);
-    Inertia.get inertia "/count" (fun _ -> Lwt.return @@ count ());
-    Inertia.get inertia "/users" (fun _ -> Lwt.return @@ users_page ());
-    Inertia.post inertia "/users" add_user;
+    Dream.get "/" (Inertia.inertia_response inertia home_page);
+    Dream.get "/about" (Inertia.inertia_response inertia (fun () -> about_page));
+    Dream.get "/count" (Inertia.inertia_response inertia count);
+    Dream.get "/users" (Inertia.inertia_response inertia users_page);
+    Dream.post "/users" (add_user inertia);
     Dream.get "/favicon.ico" (Loader.asset_loader "" "favicon.ico");
     Dream.get "/robots.txt" (Loader.asset_loader "" "robots.txt");
     Dream.get "/assets/**" @@ Dream.static ~loader:Loader.asset_loader "assets/";
