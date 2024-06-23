@@ -11,40 +11,76 @@ type page = {
   status : Dream.status;
 }
 
+let with_status page status = { page with status }
+
 type handler = Dream.request -> page Lwt.t
 
 let make ~version ~js_path ~css_path () = { version; js_path; css_path }
+
+let is_inertia_request request =
+  Dream.header request "X-Inertia" |> Option.is_some
 
 let is_redirect response =
   let status = Dream.status response in
   status = `Moved_Permanently || status = `Found
 
+let request_path request =
+  begin
+    Dream.to_path (Dream.path request)
+  end
+  [@alert "-deprecated"]
+
+let set_location request response =
+  if Dream.is_redirection (Dream.status response) then
+    Dream.set_header response "Location" (request_path request)
+  else ()
+
+let set_csrf_cookie request response =
+  let valid_for = Ptime.Span.of_float_s 3600. |> Option.get in
+  let csrf = Dream.csrf_token request in
+  Dream.log "Setting token <%s>" csrf;
+  Dream.set_cookie ~encrypt:false ~http_only:false
+    ~expires:
+      Ptime.(
+        add_span (Ptime_clock.now ()) valid_for
+        |> Option.get |> Ptime.to_float_s)
+    response request "XSRF-TOKEN" csrf
+
 let is_non_post_redirect request response =
   let meth = Dream.method_ request in
   is_redirect response && (meth = `PUT || meth = `PATCH || meth = `DELETE)
 
-let middleware inertia handler request =
-  let meth = Dream.method_ request in
+let update_status (response : Dream.response) =
+  let open Lwt.Syntax in
+  let* body = Dream.body response in
+  Dream.respond ~status:`See_Other ~headers:(Dream.all_headers response) body
+
+let process_response request inner_handler =
+  let open Lwt.Syntax in
+  let* response = inner_handler request in
+  set_location request response;
+  set_csrf_cookie request response;
+  if is_non_post_redirect request response then update_status response
+  else Lwt.return response
+
+let stale_response request =
+  Dream.empty
+    ~headers:[ ("X-Inertia-Location", request_path request) ]
+    `Conflict
+
+let middleware inertia inner_handler request =
   let version =
-    Dream.header request "X-Inertia-Version"
-    |> Option.value ~default:inertia.version
+    Dream.header request "X-Inertia-Version" |> Option.value ~default:""
   in
-  let is_stale = meth = `GET && not (String.equal version inertia.version) in
-  if is_stale then
-    begin
-      let path = Dream.to_path (Dream.path request) in
-      Dream.empty ~headers:[ ("X-Inertia-Location", path) ] `Conflict
-    end
-    [@alert "-deprecated"]
-  else
-    let open Lwt.Syntax in
-    let* response = handler request in
-    if is_non_post_redirect request response then
-      let+ body = Dream.body response in
-      Dream.response ~status:`See_Other
-        ~headers:(Dream.all_headers response)
-        body
-    else Lwt.return response
+  match
+    ( Dream.method_ request,
+      is_inertia_request request,
+      String.equal version inertia.version )
+  with
+  | `GET, true, false ->
+      Dream.log "Received stale version '%s'" version;
+      stale_response request
+  | _, _, _ -> process_response request inner_handler
 
 let page ~component ?(props = []) ?(lazy_props = []) ~url ?(headers = [])
     ?(status = `OK) () =
@@ -106,8 +142,6 @@ let full_page page ~version ~js ~css =
     (Dream.html_escape @@ page_to_string version page None)
     js
 
-let update_status = function `Found -> `See_Other | status -> status
-
 let include_filter req =
   match Dream.header req "X-Inertia-Partial-Data" with
   | Some fields ->
@@ -129,16 +163,15 @@ let to_dream_handler inertia handler =
   let open Lwt.Syntax in
   fun req ->
     let* page = handler req in
-    let status = update_status page.status in
+    let status = page.status in
     let headers = ("X-Inertia", "true") :: page.headers in
-    match Dream.header req "X-Inertia" with
-    | Some "true" ->
-        Dream.json ~status ~headers
-        @@ page_to_string inertia.version page (props_filter req)
-    | _ ->
-        Dream.html ~status ~headers
-        @@ full_page page ~version:inertia.version ~css:inertia.css_path
-             ~js:inertia.js_path
+    if is_inertia_request req then
+      Dream.json ~status ~headers
+      @@ page_to_string inertia.version page (props_filter req)
+    else
+      Dream.html ~status ~headers
+      @@ full_page page ~version:inertia.version ~css:inertia.css_path
+           ~js:inertia.js_path
 
 let to_dream_method delegate inertia path handler =
   let handler = to_dream_handler inertia handler in

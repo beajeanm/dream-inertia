@@ -3,17 +3,13 @@ import { Link } from "@inertiajs/vue3";
 </script>
 
 <template>
-  <header>
+  <main>
     <img alt="Vue logo" class="logo" src="../assets/logo.svg" width="125" height="125" />
 
     <div class="wrapper">
       <h1>This is the about page</h1>
       <Link href="/">Home</Link>
     </div>
-  </header>
-
-  <main>
-    <TheWelcome />
   </main>
 </template>
 

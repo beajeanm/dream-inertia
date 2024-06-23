@@ -15,6 +15,7 @@ val page :
   unit ->
   page
 
+val with_status : page -> Dream.status -> page
 val get : t -> string -> handler -> Dream.route
 val post : t -> string -> handler -> Dream.route
 val put : t -> string -> handler -> Dream.route

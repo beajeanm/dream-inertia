@@ -5,16 +5,13 @@ defineProps({ counter: Number, message: String });
 </script>
 
 <template>
-  <header>
+  <main>
     <div class="wrapper">
       <h1>{{ message }} {{ counter }}</h1>
       <Link href="/count" :only="['counter', 'other']">Click here</Link>
+      <Link href="/users">Users</Link>
       <Link href="/about">About</Link>
     </div>
-  </header>
-
-  <main>
-    <TheWelcome />
   </main>
 </template>
 

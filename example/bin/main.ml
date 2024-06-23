@@ -1,28 +1,88 @@
 open Dream_inertia
+open Inertia
 open Example_lib
 
-let routes inertia =
-  let counter = ref 0 in
-  let open Inertia in
-  let generate_message () =
-    Dream.log "Generating a message!!!!";
-    `String "🐫 You've clicked: "
-  in
-  let home counter =
+module Model = struct
+  type user = { first_name : string; last_name : string; email : string }
+
+  let user_to_json user =
+    `Assoc
+      [
+        ("first_name", `String user.first_name);
+        ("last_name", `String user.last_name);
+        ("email", `String user.email);
+      ]
+
+  let json_to_user json =
+    let first_name = Yojson.Safe.Util.(member "first_name" json |> to_string) in
+    let last_name = Yojson.Safe.Util.(member "last_name" json |> to_string) in
+    let email = Yojson.Safe.Util.(member "email" json |> to_string) in
+    { first_name; last_name; email }
+
+  let users : user list ref =
+    ref
+      [
+        {
+          first_name = "John";
+          last_name = "Smith";
+          email = "jonh.smith@test.com";
+        };
+      ]
+
+  let add_user user = users := user :: !users
+  let counter = ref 0
+end
+
+module Controller = struct
+  open Model
+
+  let home_page () =
+    let generate_message () =
+      Dream.log "Generating a message!!!!";
+      `String "🐫 You've clicked: "
+    in
     page ~component:"Home"
-      ~props:[ ("counter", `Int counter) ]
+      ~props:[ ("counter", `Int !counter) ]
       ~lazy_props:[ ("message", Lazy.from_fun generate_message) ]
       ~url:"/" ()
-  in
-  let about = page ~component:"About" ~url:"/" () in
+
   let count () =
     incr counter;
-    home !counter
-  in
+    home_page ()
+
+  let about_page = page ~component:"About" ~url:"/about" ()
+
+  let users_page () =
+    let users_json = `List (List.map user_to_json !users) in
+    page ~component:"Users" ~props:[ ("users", users_json) ] ~url:"/users" ()
+
+  let add_user request =
+    let open Lwt.Syntax in
+    let csrf_token = Dream.header request "X-Xsrf-Token" |> Option.get in
+    let cookie_token =
+      Dream.cookie ~decrypt:false ~secure:false request "XSRF-TOKEN"
+      |> Option.get
+    in
+    let* csrf_result = Dream.verify_csrf_token request csrf_token in
+    match (csrf_result, String.equal cookie_token csrf_token) with
+    | `Ok, true ->
+        let+ json_body = Dream.body request in
+        let user = json_to_user (Yojson.Safe.from_string json_body) in
+        Model.add_user user;
+        page ~component:"Users" ~url:"/users" ~status:`Found ()
+    | __ ->
+        Lwt.return
+        @@ page ~component:"Users" ~url:"/users" ~status:`Bad_Request ()
+end
+
+let routes inertia =
+  let open Controller in
   [
-    Inertia.get inertia "/" (fun _ -> Lwt.return (home !counter));
-    Inertia.get inertia "/about" (fun _ -> Lwt.return about);
+    Inertia.get inertia "/" (fun _ -> Lwt.return (home_page ()));
+    Inertia.get inertia "/about" (fun _ -> Lwt.return about_page);
     Inertia.get inertia "/count" (fun _ -> Lwt.return @@ count ());
+    Inertia.get inertia "/users" (fun _ -> Lwt.return @@ users_page ());
+    Inertia.post inertia "/users" add_user;
     Dream.get "/favicon.ico" (Loader.asset_loader "" "favicon.ico");
     Dream.get "/robots.txt" (Loader.asset_loader "" "robots.txt");
     Dream.get "/assets/**" @@ Dream.static ~loader:Loader.asset_loader "assets/";
@@ -33,5 +93,7 @@ let () =
     Inertia.make ~version:Loader.version ~js_path:Loader.index_js
       ~css_path:Loader.index_css ()
   in
-  Dream.run @@ Dream.logger @@ Inertia.middleware inertia
+  Dream.run ~error_handler:Dream.debug_error_handler
+  @@ Dream.logger @@ Inertia.middleware inertia @@ Dream.origin_referrer_check
+  @@ Dream.memory_sessions
   @@ Dream.router (routes inertia)
