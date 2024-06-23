@@ -1,13 +1,9 @@
 open Dream_inertia
 open Example_lib
 
-let routes =
+let routes inertia =
   let counter = ref 0 in
   let open Inertia in
-  let inertia =
-    make ~version:Loader.version ~js_path:Loader.index_js
-      ~css_path:Loader.index_css ()
-  in
   let generate_message () =
     Dream.log "Generating a message!!!!";
     `String "🐫 You've clicked: "
@@ -32,4 +28,10 @@ let routes =
     Dream.get "/assets/**" @@ Dream.static ~loader:Loader.asset_loader "assets/";
   ]
 
-let () = Dream.run @@ Dream.logger @@ Dream.router routes
+let () =
+  let inertia =
+    Inertia.make ~version:Loader.version ~js_path:Loader.index_js
+      ~css_path:Loader.index_css ()
+  in
+  Dream.run @@ Dream.logger @@ Inertia.middleware inertia
+  @@ Dream.router (routes inertia)

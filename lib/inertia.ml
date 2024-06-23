@@ -1,7 +1,5 @@
 type t = { version : string; js_path : string; css_path : string }
 
-let make ~version ~js_path ~css_path () = { version; js_path; css_path }
-
 type page = {
   (* The name of view template in view/src/Pages *)
   component : string;
@@ -14,6 +12,39 @@ type page = {
 }
 
 type handler = Dream.request -> page Lwt.t
+
+let make ~version ~js_path ~css_path () = { version; js_path; css_path }
+
+let is_redirect response =
+  let status = Dream.status response in
+  status = `Moved_Permanently || status = `Found
+
+let is_non_post_redirect request response =
+  let meth = Dream.method_ request in
+  is_redirect response && (meth = `PUT || meth = `PATCH || meth = `DELETE)
+
+let middleware inertia handler request =
+  let meth = Dream.method_ request in
+  let version =
+    Dream.header request "X-Inertia-Version"
+    |> Option.value ~default:inertia.version
+  in
+  let is_stale = meth = `GET && not (String.equal version inertia.version) in
+  if is_stale then
+    begin
+      let path = Dream.to_path (Dream.path request) in
+      Dream.empty ~headers:[ ("X-Inertia-Location", path) ] `Conflict
+    end
+    [@alert "-deprecated"]
+  else
+    let open Lwt.Syntax in
+    let* response = handler request in
+    if is_non_post_redirect request response then
+      let+ body = Dream.body response in
+      Dream.response ~status:`See_Other
+        ~headers:(Dream.all_headers response)
+        body
+    else Lwt.return response
 
 let page ~component ?(props = []) ?(lazy_props = []) ~url ?(headers = [])
     ?(status = `OK) () =
@@ -77,11 +108,6 @@ let full_page page ~version ~js ~css =
 
 let update_status = function `Found -> `See_Other | status -> status
 
-let add_location headers status url =
-  match status with
-  | `Conflict -> ("X-Inertia-Location", url) :: headers
-  | _ -> headers
-
 let include_filter req =
   match Dream.header req "X-Inertia-Partial-Data" with
   | Some fields ->
@@ -102,29 +128,17 @@ let props_filter req =
 let to_dream_handler inertia handler =
   let open Lwt.Syntax in
   fun req ->
-    let version =
-      Dream.header req "X-Inertia-Version"
-      |> Option.value ~default:inertia.version
-    in
-    let meth = Dream.method_ req in
-    if meth = `GET && not (String.equal version inertia.version) then
-      Dream.empty
-      (* TODO: How to handle giving back a URL since Dream.path is deprecated... *)
-        ~headers:[ ("X-Inertia", "true"); ("X-Inertia-Location", "/") ]
-        `Conflict
-    else
-      let* page = handler req in
-      let status = update_status page.status in
-      let headers = ("X-Inertia", "true") :: page.headers in
-      let headers = add_location headers status page.url in
-      match Dream.header req "X-Inertia" with
-      | Some "true" ->
-          Dream.json ~status ~headers
-          @@ page_to_string inertia.version page (props_filter req)
-      | _ ->
-          Dream.html ~status ~headers
-          @@ full_page page ~version:inertia.version ~css:inertia.css_path
-               ~js:inertia.js_path
+    let* page = handler req in
+    let status = update_status page.status in
+    let headers = ("X-Inertia", "true") :: page.headers in
+    match Dream.header req "X-Inertia" with
+    | Some "true" ->
+        Dream.json ~status ~headers
+        @@ page_to_string inertia.version page (props_filter req)
+    | _ ->
+        Dream.html ~status ~headers
+        @@ full_page page ~version:inertia.version ~css:inertia.css_path
+             ~js:inertia.js_path
 
 let to_dream_method delegate inertia path handler =
   let handler = to_dream_handler inertia handler in

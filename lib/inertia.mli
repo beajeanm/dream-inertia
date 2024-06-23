@@ -3,6 +3,7 @@ type page
 type handler = Dream.request -> page Lwt.t
 
 val make : version:string -> js_path:string -> css_path:string -> unit -> t
+val middleware : t -> Dream.middleware
 
 val page :
   component:string ->

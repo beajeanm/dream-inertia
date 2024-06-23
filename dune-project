@@ -13,8 +13,6 @@
 
 (license MIT)
 
-(documentation https://url/to/documentation)
-
 (package
  (name dream_inertia)
  (synopsis "A dream adapter for Inertia.js")
@@ -25,6 +23,4 @@
   (dream
    (>= 1.0.0~alpha6))
   ocaml
-  dune)
- (tags
-  (topics "to describe" your project)))
+  dune))
