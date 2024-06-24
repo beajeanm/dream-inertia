@@ -1,17 +1,28 @@
 type t = { version : string; js_path : string; css_path : string }
+type thunk = unit -> Yojson.Safe.t
+
+type prop =
+  | Regular of Yojson.Safe.t
+  | Closure of thunk
+  | Lazy of thunk
+  | Always of Yojson.Safe.t
 
 type page = {
   (* The name of view template in view/src/Pages *)
   component : string;
   (* The data to create the vue component *)
-  props : (string * Yojson.Safe.t) list;
-  lazy_props : (string * Yojson.Safe.t Lazy.t) list;
+  props : (string * prop) list;
   url : string;
 }
 
 type handler = Dream.request -> page Lwt.t
 
 let make ~version ~js_path ~css_path () = { version; js_path; css_path }
+let prop json = Regular json
+let always_prop json = Always json
+let lazy_prop json = Lazy json
+let closure_prop json = Closure json
+let page ~component ?(props = []) ~url () = { component; props; url }
 
 let is_inertia_request request =
   Dream.header request "X-Inertia" |> Option.is_some
@@ -75,28 +86,28 @@ let middleware inertia inner_handler request =
   | `GET, true, false -> stale_response request
   | _, _, _ -> process_response request inner_handler
 
-let page ~component ?(props = []) ?(lazy_props = []) ~url () =
-  { component; props; lazy_props; url }
+let full_page_filter named_props =
+  let not_lazy = function Lazy _ -> false | _ -> true in
+  List.filter (fun (_, prop) -> not_lazy prop) named_props
 
-let filter_keys assoc predicate =
-  List.filter (fun (key, _) -> predicate key) assoc
+let inertia_page_filter predicate named_props =
+  let filter_prop predicate = function
+    | _, Always _ -> true
+    | name, _ -> predicate name
+  in
+  List.filter (filter_prop predicate) named_props
 
-let page_to_string version page props_filter =
-  let filtered_lazy_props =
-    Option.map (filter_keys page.lazy_props) props_filter
-    |> Option.value ~default:page.lazy_props
-  in
-  let forced_lazy_props =
-    List.map
-      (fun (key, lazy_json) -> (key, Lazy.force lazy_json))
-      filtered_lazy_props
-  in
-  let filtered_props =
-    Option.map (filter_keys page.props) props_filter
-    |> Option.value ~default:page.props
-  in
+let extract_prop = function
+  | Always j -> j
+  | Regular j -> j
+  | Closure lj -> lj ()
+  | Lazy lj -> lj ()
+
+let page_to_string version page filter =
+  let filtered_props = filter page.props in
   let merged_props =
-    Yojson.Safe.Util.combine (`Assoc filtered_props) (`Assoc forced_lazy_props)
+    `Assoc
+      (List.map (fun (name, prop) -> (name, extract_prop prop)) filtered_props)
   in
   let json =
     `Assoc
@@ -150,15 +161,19 @@ let exclude_filter req =
 
 let props_filter request =
   match include_filter request with
-  | Some _ as f -> f
-  | None -> exclude_filter request
+  | Some filter -> filter
+  | None -> exclude_filter request |> Option.value ~default:(fun _ -> true)
 
 let inertia_response inertia ?(headers = []) ?(status = `OK) handler request =
-  let filter = props_filter request in
   let page = handler () in
   let headers = ("X-Inertia", "true") :: headers in
-  let page_data = page_to_string inertia.version page filter in
-  if is_inertia_request request then Dream.json ~headers ~status page_data
+  if is_inertia_request request then
+    let prop_name_filter = props_filter request in
+    let page_data =
+      page_to_string inertia.version page (inertia_page_filter prop_name_filter)
+    in
+    Dream.json ~headers ~status page_data
   else
+    let page_data = page_to_string inertia.version page full_page_filter in
     Dream.html ~status ~headers
-    @@ full_page page_data ~css:inertia.css_path ~js:inertia.js_path
+    @@ full_page ~css:inertia.css_path ~js:inertia.js_path page_data

@@ -42,8 +42,12 @@ module Controller = struct
       `String "🐫 You've clicked: "
     in
     page ~component:"Home"
-      ~props:[ ("counter", `Int !counter) ]
-      ~lazy_props:[ ("message", Lazy.from_fun generate_message) ]
+      ~props:
+        Inertia.
+          [
+            ("counter", prop (`Int !counter));
+            ("message", lazy_prop generate_message);
+          ]
       ~url:"/" ()
 
   let count () =
@@ -54,7 +58,9 @@ module Controller = struct
 
   let users_page () =
     let users_json = `List (List.map user_to_json !users) in
-    page ~component:"Users" ~props:[ ("users", users_json) ] ~url:"/users" ()
+    page ~component:"Users"
+      ~props:Inertia.[ ("users", prop users_json) ]
+      ~url:"/users" ()
 
   let add_user inertia request =
     let open Lwt.Syntax in
