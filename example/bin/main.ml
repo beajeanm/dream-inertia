@@ -46,7 +46,7 @@ module Controller = struct
         Inertia.
           [
             ("counter", prop (`Int !counter));
-            ("message", lazy_prop generate_message);
+            ("message", delayed_prop generate_message);
           ]
       ~url:"/" ()
 
@@ -98,10 +98,11 @@ let routes inertia =
   ]
 
 let () =
-  let inertia =
-    Inertia.init ~version:Loader.version ~js_path:Loader.index_js
-      ~css_path:Loader.index_css ()
+  let root_view =
+    Inertia.Root_View_Helper.create ~js:Loader.index_js ~css:Loader.index_css
   in
+  let inertia = Inertia.init ~version:Loader.version ~root_view () in
+
   Dream.run ~error_handler:Dream.debug_error_handler
   @@ Dream.logger @@ Inertia.middleware inertia @@ Dream.origin_referrer_check
   @@ Dream.memory_sessions

@@ -1,10 +1,11 @@
-type t = { version : string; js_path : string; css_path : string }
+type t = { version : string; root_view : string -> string }
+type json = Yojson.Safe.t
 
 type prop =
-  | Regular of Yojson.Safe.t
-  | Delay of (unit -> Yojson.Safe.t)
-  | Lazy of (unit -> Yojson.Safe.t)
-  | Always of Yojson.Safe.t
+  | Regular of json
+  | Delay of (unit -> json)
+  | Lazy of (unit -> json)
+  | Always of json
 
 type page = {
   (* The name of view template in view/src/Pages *)
@@ -18,7 +19,7 @@ let prop json = Regular json
 let always_prop json = Always json
 let lazy_prop json = Lazy json
 let delayed_prop json = Delay json
-let init ~version ~js_path ~css_path () = { version; js_path; css_path }
+let init ~version ~root_view () = { version; root_view }
 let page ~component ?(props = []) ~url () = { component; props; url }
 let with_prop page key prop = { page with props = (key, prop) :: page.props }
 let with_url page url = { page with url }
@@ -119,31 +120,6 @@ let page_to_string version page filter =
   in
   Yojson.Safe.to_string json
 
-let full_page string_of_page ~js ~css =
-  Format.asprintf
-    {|
-<!doctype html>
-<html lang="en">
-
-<head>
-  <meta charset="UTF-8" />
-  <link rel="icon" href="/favicon.ico" />
-  <link rel="stylesheet" href="%s">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Vite App</title>
-</head>
-
-<body>
-  <div id="app" data-page='%s'></div>
-  <script type="module" src="%s"></script>
-</body>
-
-</html>
-|}
-    css
-    (Dream.html_escape @@ string_of_page)
-    js
-
 let include_filter req =
   match Dream.header req "X-Inertia-Partial-Data" with
   | Some fields ->
@@ -173,5 +149,30 @@ let inertia_response inertia ?(headers = []) ?(status = `OK) request page =
     Dream.json ~headers ~status page_data
   else
     let page_data = page_to_string inertia.version page full_page_filter in
-    Dream.html ~status ~headers
-    @@ full_page ~css:inertia.css_path ~js:inertia.js_path page_data
+    Dream.html ~status ~headers @@ inertia.root_view page_data
+
+module Root_View_Helper = struct
+  let create ~js ~css page_data =
+    Format.asprintf
+      {html|
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" href="/favicon.ico" />
+  <link rel="stylesheet" href="%s">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+</head>
+
+<body>
+  <div id="app" data-page='%s'></div>
+  <script type="module" src="%s"></script>
+</body>
+
+</html>
+|html}
+      css
+      (Dream.html_escape @@ page_data)
+      js
+end
