@@ -14,7 +14,7 @@ let index_js =
 
 let version =
   (* Skip assets/index- at the beginning and .js at the end*)
-  String.sub index_js 13 ((String.length index_js) -16)
+  String.sub index_js 13 (String.length index_js - 16)
 
 let asset_loader directory path req =
   let resource = Format.asprintf "%s%s" directory path in

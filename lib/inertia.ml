@@ -1,10 +1,9 @@
 type t = { version : string; js_path : string; css_path : string }
-type thunk = unit -> Yojson.Safe.t
 
 type prop =
   | Regular of Yojson.Safe.t
-  | Closure of thunk
-  | Lazy of thunk
+  | Delay of (unit -> Yojson.Safe.t)
+  | Lazy of (unit -> Yojson.Safe.t)
   | Always of Yojson.Safe.t
 
 type page = {
@@ -15,14 +14,14 @@ type page = {
   url : string;
 }
 
-type handler = Dream.request -> page Lwt.t
-
-let make ~version ~js_path ~css_path () = { version; js_path; css_path }
 let prop json = Regular json
 let always_prop json = Always json
 let lazy_prop json = Lazy json
-let closure_prop json = Closure json
+let delayed_prop json = Delay json
+let init ~version ~js_path ~css_path () = { version; js_path; css_path }
 let page ~component ?(props = []) ~url () = { component; props; url }
+let with_prop page key prop = { page with props = (key, prop) :: page.props }
+let with_url page url = { page with url }
 
 let is_inertia_request request =
   Dream.header request "X-Inertia" |> Option.is_some
@@ -100,7 +99,7 @@ let inertia_page_filter predicate named_props =
 let extract_prop = function
   | Always j -> j
   | Regular j -> j
-  | Closure lj -> lj ()
+  | Delay lj -> lj ()
   | Lazy lj -> lj ()
 
 let page_to_string version page filter =
@@ -164,8 +163,7 @@ let props_filter request =
   | Some filter -> filter
   | None -> exclude_filter request |> Option.value ~default:(fun _ -> true)
 
-let inertia_response inertia ?(headers = []) ?(status = `OK) handler request =
-  let page = handler () in
+let inertia_response inertia ?(headers = []) ?(status = `OK) request page =
   let headers = ("X-Inertia", "true") :: headers in
   if is_inertia_request request then
     let prop_name_filter = props_filter request in

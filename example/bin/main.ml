@@ -75,19 +75,22 @@ module Controller = struct
         let* json_body = Dream.body request in
         let user = json_to_user (Yojson.Safe.from_string json_body) in
         Model.add_user user;
-        Inertia.inertia_response inertia ~status:`Found
-          (fun () -> page ~component:"Users" ~url:"/users" ())
-          request
+        Inertia.inertia_response inertia ~status:`Found request
+          (page ~component:"Users" ~url:"/users" ())
     | __ -> Dream.empty `Bad_Request
 end
 
 let routes inertia =
   let open Controller in
   [
-    Dream.get "/" (Inertia.inertia_response inertia home_page);
-    Dream.get "/about" (Inertia.inertia_response inertia (fun () -> about_page));
-    Dream.get "/count" (Inertia.inertia_response inertia count);
-    Dream.get "/users" (Inertia.inertia_response inertia users_page);
+    Dream.get "/" (fun req ->
+        Inertia.inertia_response inertia req @@ home_page ());
+    Dream.get "/about" (fun req ->
+        Inertia.inertia_response inertia req about_page);
+    Dream.get "/count" (fun req ->
+        Inertia.inertia_response inertia req @@ count ());
+    Dream.get "/users" (fun req ->
+        Inertia.inertia_response inertia req @@ users_page ());
     Dream.post "/users" (add_user inertia);
     Dream.get "/favicon.ico" (Loader.asset_loader "" "favicon.ico");
     Dream.get "/robots.txt" (Loader.asset_loader "" "robots.txt");
@@ -96,7 +99,7 @@ let routes inertia =
 
 let () =
   let inertia =
-    Inertia.make ~version:Loader.version ~js_path:Loader.index_js
+    Inertia.init ~version:Loader.version ~js_path:Loader.index_js
       ~css_path:Loader.index_css ()
   in
   Dream.run ~error_handler:Dream.debug_error_handler
