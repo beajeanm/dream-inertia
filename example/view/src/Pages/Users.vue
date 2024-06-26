@@ -7,6 +7,7 @@ const headers = reactive(["first_name", "last_name", "email"]);
 
 defineProps({
   users: Array,
+  errors: Object,
 });
 
 const form = useForm({
@@ -18,7 +19,7 @@ const form = useForm({
 function submit() {
   form.post("/users", {
     preserveScroll: true,
-    onSuccess: () => form.reset(),
+    preserveState: "errors",
   });
 }
 </script>
@@ -46,10 +47,13 @@ function submit() {
     <form @submit.prevent="submit">
       <label for="first_name">First name:</label>
       <input id="first_name" v-model="form.first_name" />
+      <div v-if="errors.first_name">{{ errors.first_name }}</div>
       <label for="last_name">Last name:</label>
       <input id="last_name" v-model="form.last_name" />
+      <div v-if="errors.last_name">{{ errors.last_name }}</div>
       <label for="email">Email:</label>
       <input id="email" v-model="form.email" />
+      <div v-if="errors.email">{{ errors.email }}</div>
       <button type="submit">Submit</button>
     </form>
   </div>

@@ -74,7 +74,12 @@ module Controller = struct
     | `Ok, true ->
         let* json_body = Dream.body request in
         let user = json_to_user (Yojson.Safe.from_string json_body) in
-        Model.add_user user;
+
+        if String.equal user.first_name "John" then
+          Inertia.add_flash_message request
+            (`Assoc [ ("first_name", `String "first name should not be John") ])
+        else Model.add_user user;
+
         Inertia.inertia_response inertia ~status:`Found request
           (page ~component:"Users" ~url:"/users" ())
     | __ -> Dream.empty `Bad_Request
@@ -91,6 +96,7 @@ let routes inertia =
         Inertia.inertia_response inertia req @@ count ());
     Dream.get "/users" (fun req ->
         Inertia.inertia_response inertia req @@ users_page ());
+    Dream.get "/error" (fun _ -> failwith "This is a server side error!");
     Dream.post "/users" (add_user inertia);
     Dream.get "/favicon.ico" (Loader.asset_loader "" "favicon.ico");
     Dream.get "/robots.txt" (Loader.asset_loader "" "robots.txt");
@@ -121,10 +127,12 @@ let () =
   let js = find_js manifest in
   let css = find_css manifest in
   let version = parse_version manifest in
-  let root_view = Inertia.Root_View_Helper.create ~js ~css in
+  let root_view = Inertia.Helper.root_view ~js ~css in
   let inertia = Inertia.init ~version ~root_view () in
 
-  Dream.run ~error_handler:Dream.debug_error_handler
+  Dream.run
+    ~error_handler:
+      (Inertia.Helper.error_handler inertia Dream.debug_error_handler)
   @@ Dream.logger @@ Inertia.middleware inertia @@ Dream.origin_referrer_check
-  @@ Dream.memory_sessions
+  @@ Dream.memory_sessions @@ Dream.flash
   @@ Dream.router (routes inertia)

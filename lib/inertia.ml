@@ -17,6 +17,18 @@ type page = {
   url : string;
 }
 
+let flash_key = "inertia-errors"
+
+let get_flash_messages request =
+  List.assoc_opt flash_key (Dream.flash_messages request)
+  |> Option.map Yojson.Safe.from_string
+  |> Option.value ~default:(`Assoc [])
+
+let add_flash_message request data =
+  let previous = get_flash_messages request in
+  let data = Yojson.Safe.to_string (Yojson.Safe.Util.combine data previous) in
+  Dream.add_flash_message request flash_key data
+
 let prop json = Regular json
 let always_prop json = Always json
 let lazy_prop json = Lazy json
@@ -168,6 +180,10 @@ let props_filter request =
 let inertia_response inertia ?(headers = []) ?(status = `OK) request page =
   let headers = ("X-Inertia", "true") :: headers in
   let shared_data = get_shared_data request in
+  let flash_messages = get_flash_messages request in
+  let shared_data =
+    Yojson.Safe.Util.combine shared_data (`Assoc [ ("errors", flash_messages) ])
+  in
   if is_inertia_request request then
     let prop_name_filter = props_filter request in
     let page_data =
@@ -181,8 +197,8 @@ let inertia_response inertia ?(headers = []) ?(status = `OK) request page =
     in
     Dream.html ~status ~headers @@ inertia.root_view page_data
 
-module Root_View_Helper = struct
-  let create ~js ~css page_data =
+module Helper = struct
+  let root_view ~js ~css page_data =
     Format.asprintf
       {html|
 <!doctype html>
@@ -205,4 +221,40 @@ module Root_View_Helper = struct
       css
       (Dream.html_escape @@ page_data)
       js
+
+  let extract_message = function
+    | `String msg -> Lwt.return msg
+    | `Exn exn -> Lwt.return @@ Printexc.to_string exn
+    | `Response response -> Dream.body response
+
+  let error_handler inertia delegate error =
+    let open Lwt.Syntax in
+    match error.Dream.request with
+    | None -> delegate error
+    | Some request ->
+        if is_inertia_request request then
+          let+ message = extract_message error.Dream.condition in
+          let status =
+            Option.map Dream.status error.Dream.response
+            |> Option.value ~default:`Internal_Server_Error
+            |> Dream.status_to_int
+          in
+          let url = request_path request in
+          let page =
+            page ~component:"Error"
+              ~props:
+                [
+                  ("status", prop (`Int status));
+                  ("message", prop (`String message));
+                ]
+              ~url ()
+          in
+          let page_data =
+            page_to_string inertia.version page (`Assoc []) Fun.id
+          in
+          let headers =
+            [ ("X-Inertia", "true"); ("Content-Type", "application/json") ]
+          in
+          Some (Dream.response ~code:status ~headers page_data)
+        else delegate error
 end

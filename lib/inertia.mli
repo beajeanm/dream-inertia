@@ -20,6 +20,10 @@ type prop
 type json = Yojson.Safe.t
 (** The JSON type. *)
 
+val add_flash_message : Dream.request -> json -> unit
+(** Add some data to a flash message. Data added through this method will be available to your page in 
+    the errors prop. if flash data is already present, this will merge it. *)
+
 val prop : json -> prop
 (** Create a regular property. *)
 
@@ -63,13 +67,16 @@ val inertia_response :
 (** Create a new Dream response by rendering the page data.
     The page will be rendered either as text/html for standard visit, or application/json for inertia request *)
 
-(** Helper to generate a root view. *)
-module Root_View_Helper : sig
-  val create : js:string -> css:string -> string -> string
+(** Helper module, it contains default implementation you may want to re-implement for your use cases. *)
+module Helper : sig
+  val root_view : js:string -> css:string -> string -> string
   (** [create js css] create a root view for standard visit.
     The template is basic but should be sufficient for most usage.
 
     [js] the path to the JavaScript asssets.
 
     [css] the path to the CSS assets*)
+
+  val error_handler : t -> Dream.error_handler -> Dream.error_handler
+  (** Inertia aware error handler, it passes the error to the provided error handler for any non-inertia request. *)
 end

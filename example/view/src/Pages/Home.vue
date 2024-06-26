@@ -11,6 +11,7 @@ defineProps({ counter: Number, message: String });
       <Link href="/count" :only="['counter', 'other']">Click here</Link>
       <Link href="/users">Users</Link>
       <Link href="/about">About</Link>
+      <Link href="/error">💥</Link>
     </div>
   </main>
 </template>
