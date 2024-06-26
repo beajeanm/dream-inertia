@@ -46,10 +46,12 @@ val page :
 
 val with_prop : page -> string -> prop -> page
 (** [with_prop page key prop] create a copy of the page with this property added,
-    if the key already exists it will be duplicated. *)
+    if the key already exists it will be replaced. *)
 
 val with_url : page -> string -> page
-(** [with_url page url ] create a copy of the page with a new url. *)
+(** [with_url page url ] create a copy of the page with a new URL. *)
+
+val add_shared_data : Dream.request -> string -> json -> unit Lwt.t
 
 val inertia_response :
   t ->
