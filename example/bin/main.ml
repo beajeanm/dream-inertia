@@ -97,11 +97,32 @@ let routes inertia =
     Dream.get "/assets/**" @@ Dream.static ~loader:Loader.asset_loader "assets/";
   ]
 
+let parse_manifest () =
+  Assets.read "manifest.json"
+  |> Option.map Yojson.Safe.from_string
+  |> Option.get
+
+let find_js manifest =
+  let open Yojson.Safe.Util in
+  member "src/main.js" manifest |> member "file" |> to_string
+
+let find_css manifest =
+  let open Yojson.Safe.Util in
+  member "src/main.js" manifest
+  |> member "css" |> to_list |> List.hd |> to_string
+
+let parse_version manifest =
+  let js = find_js manifest in
+  let prefix_length = String.length "assets/main-" in
+  String.sub js prefix_length (String.length js - prefix_length - 3)
+
 let () =
-  let root_view =
-    Inertia.Root_View_Helper.create ~js:Loader.index_js ~css:Loader.index_css
-  in
-  let inertia = Inertia.init ~version:Loader.version ~root_view () in
+  let manifest = parse_manifest () in
+  let js = find_js manifest in
+  let css = find_css manifest in
+  let version = parse_version manifest in
+  let root_view = Inertia.Root_View_Helper.create ~js ~css in
+  let inertia = Inertia.init ~version ~root_view () in
 
   Dream.run ~error_handler:Dream.debug_error_handler
   @@ Dream.logger @@ Inertia.middleware inertia @@ Dream.origin_referrer_check

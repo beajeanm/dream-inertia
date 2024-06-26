@@ -1,21 +1,3 @@
-let index_css =
-  Assets.Internal.file_list
-  |> List.filter (fun name ->
-         String.starts_with ~prefix:"assets/index" name
-         && String.ends_with ~suffix:"css" name)
-  |> List.hd
-
-let index_js =
-  Assets.Internal.file_list
-  |> List.filter (fun name ->
-         String.starts_with ~prefix:"assets/index" name
-         && String.ends_with ~suffix:"js" name)
-  |> List.hd
-
-let version =
-  (* Skip assets/index- at the beginning and .js at the end*)
-  String.sub index_js 13 (String.length index_js - 16)
-
 let asset_loader directory path req =
   let resource = Format.asprintf "%s%s" directory path in
   match (Dream.header req "If-None-Match", Assets.hash resource) with
