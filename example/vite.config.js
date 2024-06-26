@@ -10,13 +10,13 @@ export default defineConfig({
   build: {
     manifest: "manifest.json",
     rollupOptions: {
-      input: "src/main.js",
+      input: "src/js/main.js",
     },
   },
   plugins: [
     vue(),
     Components({
-      dirs: ["src/components"],
+      dirs: ["src/js/components"],
     }),
     AutoImport({
       imports: ["vue"],
@@ -24,7 +24,7 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      "@": fileURLToPath(new URL("./src", import.meta.url)),
+      "@": fileURLToPath(new URL("./src/js", import.meta.url)),
     },
   },
 });

@@ -110,11 +110,11 @@ let parse_manifest () =
 
 let find_js manifest =
   let open Yojson.Safe.Util in
-  member "src/main.js" manifest |> member "file" |> to_string
+  member "src/js/main.js" manifest |> member "file" |> to_string
 
 let find_css manifest =
   let open Yojson.Safe.Util in
-  member "src/main.js" manifest
+  member "src/js/main.js" manifest
   |> member "css" |> to_list |> List.hd |> to_string
 
 let parse_version manifest =

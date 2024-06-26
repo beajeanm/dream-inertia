@@ -5,8 +5,8 @@
 (rule
  (targets assets.ml)
  (deps
-  (source_tree ../view/dist/))
+  (source_tree ../../dist/))
  (action
   (with-stdout-to
    %{null}
-   (run %{bin:ocaml-crunch} -m plain ../view/dist/ -o assets.ml))))
+   (run %{bin:ocaml-crunch} -m plain ../../dist/ -o assets.ml))))
