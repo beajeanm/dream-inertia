@@ -54,8 +54,6 @@ module Controller = struct
     incr counter;
     home_page ()
 
-  let about_page = page ~component:"About" ~url:"/about" ()
-
   let users_page () =
     let users_json = `List (List.map user_to_json !users) in
     page ~component:"Users"
@@ -90,8 +88,6 @@ let routes inertia =
   [
     Dream.get "/" (fun req ->
         Inertia.inertia_response inertia req @@ home_page ());
-    Dream.get "/about" (fun req ->
-        Inertia.inertia_response inertia req about_page);
     Dream.get "/count" (fun req ->
         Inertia.inertia_response inertia req @@ count ());
     Dream.get "/users" (fun req ->
@@ -130,9 +126,9 @@ let () =
   let root_view = Inertia.Helper.root_view ~js ~css in
   let inertia = Inertia.init ~version ~root_view () in
 
-  Dream.run
+  Dream.run ~adjust_terminal:false
     ~error_handler:
       (Inertia.Helper.error_handler inertia Dream.debug_error_handler)
-  @@ Dream.logger @@ Inertia.middleware inertia @@ Dream.origin_referrer_check
-  @@ Dream.memory_sessions @@ Dream.flash
+  @@ Dream.logger @@ Dream.origin_referrer_check
+  @@ Dream.memory_sessions @@ Dream.flash @@ Inertia.middleware inertia
   @@ Dream.router (routes inertia)

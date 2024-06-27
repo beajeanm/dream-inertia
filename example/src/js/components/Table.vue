@@ -13,17 +13,21 @@ defineProps({
 
 <template>
   <div>
-    <table>
-      <tr>
-        <th v-for="(header, i) in headers" :key="`${header}${i}`" class="header-item">
-          {{ header }}
-        </th>
-      </tr>
-      <tr v-for="entity in data" :key="`entity-${entity.name}`" class="table-rows">
-        <td v-for="(header, i) in headers" :key="`${header}-${i}`">
-          <slot :name="`column${i}`" :entity="entity"></slot>
-        </td>
-      </tr>
+    <table class="table">
+      <thead>
+        <tr>
+          <th v-for="(header, i) in headers" :key="`${header}${i}`" class="header-item" scope="col">
+            {{ header }}
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="entity in data" :key="`entity-${entity.name}`" class="table-rows">
+          <td v-for="(header, i) in headers" :key="`${header}-${i}`">
+            <slot :name="`column${i}`" :entity="entity"></slot>
+          </td>
+        </tr>
+      </tbody>
     </table>
   </div>
 </template>
