@@ -37,17 +37,11 @@ module Controller = struct
   open Model
 
   let home_page () =
-    let generate_message () =
-      Dream.log "Generating a message!!!!";
-      `String "🐫 You've clicked: "
-    in
     page ~component:"Home"
       ~props:
-        Inertia.
-          [
-            ("counter", prop (`Int !counter));
-            ("message", delayed_prop generate_message);
-          ]
+        [
+          ("counter", `Int !counter); ("message", `String "🐫 You've clicked: ");
+        ]
       ~url:"/" ()
 
   let count () =
@@ -56,9 +50,7 @@ module Controller = struct
 
   let users_page () =
     let users_json = `List (List.map user_to_json !users) in
-    page ~component:"Users"
-      ~props:Inertia.[ ("users", prop users_json) ]
-      ~url:"/users" ()
+    page ~component:"Users" ~props:[ ("users", users_json) ] ~url:"/users" ()
 
   let add_user inertia request =
     let open Lwt.Syntax in
@@ -129,6 +121,6 @@ let () =
   Dream.run ~adjust_terminal:false
     ~error_handler:
       (Inertia.Helper.error_handler inertia Dream.debug_error_handler)
-  @@ Dream.logger @@ Dream.origin_referrer_check
-  @@ Dream.memory_sessions @@ Dream.flash @@ Inertia.middleware inertia
+  @@ Dream.logger @@ Dream.origin_referrer_check @@ Dream.memory_sessions
+  @@ Dream.flash @@ Inertia.middleware inertia
   @@ Dream.router (routes inertia)

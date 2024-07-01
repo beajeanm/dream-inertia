@@ -1,19 +1,13 @@
 type t = { version : string; root_view : string -> string }
 type json = Yojson.Safe.t
 
-type prop =
-  | Regular of json
-  | Delay of (unit -> json)
-  | Lazy of (unit -> json)
-  | Always of json
-
 module StringMap = Map.Make (String)
 
 type page = {
   (* The name of view template in view/src/Pages *)
   component : string;
   (* The data to create the vue component *)
-  props : prop StringMap.t;
+  props : json StringMap.t;
   url : string;
 }
 
@@ -29,10 +23,6 @@ let add_flash_message request data =
   let data = Yojson.Safe.to_string (Yojson.Safe.Util.combine data previous) in
   Dream.add_flash_message request flash_key data
 
-let prop json = Regular json
-let always_prop json = Always json
-let lazy_prop json = Lazy json
-let delayed_prop json = Delay json
 let init ~version ~root_view () = { version; root_view }
 
 let page ~component ?(props = []) ~url () =
@@ -122,30 +112,11 @@ let add_shared_data request key prop =
   let updated_data = `Assoc ((key, prop) :: filtered_data) in
   Dream.set_session_field request key (Yojson.Safe.to_string updated_data)
 
-let full_page_filter named_props =
-  let not_lazy = function Lazy _ -> false | _ -> true in
-  StringMap.filter (fun _ prop -> not_lazy prop) named_props
-
-let inertia_page_filter predicate named_props =
-  let filter_prop predicate k v =
-    match (k, v) with _, Always _ -> true | name, _ -> predicate name
-  in
-  StringMap.filter (filter_prop predicate) named_props
-
-let extract_prop = function
-  | Always j -> j
-  | Regular j -> j
-  | Delay lj -> lj ()
-  | Lazy lj -> lj ()
-
 let page_to_string version page shared_data filter =
   let filtered_props = filter page.props |> StringMap.to_list in
   let merged_props =
     Yojson.Safe.Util.combine shared_data
-      (`Assoc
-        (List.map
-           (fun (name, prop) -> (name, extract_prop prop))
-           filtered_props))
+      (`Assoc (List.map (fun (name, prop) -> (name, prop)) filtered_props))
   in
   let json =
     `Assoc
@@ -172,7 +143,7 @@ let exclude_filter req =
       Some (fun prop -> not (List.mem prop fields))
   | _ -> None
 
-let props_filter request =
+let extract_props_filter request =
   match include_filter request with
   | Some filter -> filter
   | None -> exclude_filter request |> Option.value ~default:(fun _ -> true)
@@ -185,16 +156,14 @@ let inertia_response inertia ?(headers = []) ?(status = `OK) request page =
     Yojson.Safe.Util.combine shared_data (`Assoc [ ("errors", flash_messages) ])
   in
   if is_inertia_request request then
-    let prop_name_filter = props_filter request in
+    let prop_name_filter = extract_props_filter request in
     let page_data =
       page_to_string inertia.version page shared_data
-        (inertia_page_filter prop_name_filter)
+        (StringMap.filter (fun k _ -> prop_name_filter k))
     in
     Dream.json ~headers ~status page_data
   else
-    let page_data =
-      page_to_string inertia.version page shared_data full_page_filter
-    in
+    let page_data = page_to_string inertia.version page shared_data Fun.id in
     Dream.html ~status ~headers @@ inertia.root_view page_data
 
 module Helper = struct
@@ -242,11 +211,7 @@ module Helper = struct
           let url = request_path request in
           let page =
             page ~component:"Error"
-              ~props:
-                [
-                  ("status", prop (`Int status));
-                  ("message", prop (`String message));
-                ]
+              ~props:[ ("status", `Int status); ("message", `String message) ]
               ~url ()
           in
           let page_data =

@@ -4,37 +4,12 @@ type t
 type page
 (** The type of a page, see {{:https://inertiajs.com/the-protocol#the-page-object} The page object}. *)
 
-type prop
-(** The type of the properties used to populate the page.
-
-    There are four types of properties the differ in how they are evaluated and interact with partial reload,
-    see {{:https://inertiajs.com/partial-reloads#lazy-data-evaluation} Lazy data evaluation}.
-    - Regular properties: {b Always} included on standard visits, {b optionally} included on partial reloads
-    - Delayed properties: {b Always} included on standard visits, {b optionally} included on partial reloads,
-    evaluated when {b needed}
-    - Lazy properties: {b Never} included on standard visits, {b optionally} included on partial reloads,
-    evaluated when {b needed}
-    - Always properties: {b Always} included on standard visits, {b always} included on partial reloads
-    *)
-
 type json = Yojson.Safe.t
 (** The JSON type. *)
 
 val add_flash_message : Dream.request -> json -> unit
 (** Add some data to a flash message. Data added through this method will be available to your page in 
     the errors prop. if flash data is already present, this will merge it. *)
-
-val prop : json -> prop
-(** Create a regular property. *)
-
-val lazy_prop : (unit -> json) -> prop
-(** Create a lazy property. *)
-
-val delayed_prop : (unit -> json) -> prop
-(** Create a delayed property. *)
-
-val always_prop : json -> prop
-(** Create an always property. *)
 
 val init : version:string -> root_view:(string -> string) -> unit -> t
 (** [init version root_view ()] initialize a driver with the assets version set to [version],
@@ -45,10 +20,10 @@ val middleware : t -> Dream.middleware
 (** Manage assets versioning, csfr token, and non post redirection status. *)
 
 val page :
-  component:string -> ?props:(string * prop) list -> url:string -> unit -> page
+  component:string -> ?props:(string * json) list -> url:string -> unit -> page
 (** [page component props url ()] create a new page data. *)
 
-val with_prop : page -> string -> prop -> page
+val with_prop : page -> string -> json -> page
 (** [with_prop page key prop] create a copy of the page with this property added,
     if the key already exists it will be replaced. *)
 
