@@ -1,15 +1,33 @@
 type t = { version : string; root_view : string -> string }
-type json = Yojson.Safe.t
-
-module StringMap = Map.Make (String)
 
 type page = {
   (* The name of view template in view/src/Pages *)
   component : string;
   (* The data to create the vue component *)
-  props : json StringMap.t;
+  props : (string * Yojson.Safe.t) list;
   url : string;
 }
+
+let init ~version ~root_view () = { version; root_view }
+let page ~component ?(props = []) ~url () = { component; props; url }
+
+let middleware inertia inner_handler request =
+  Middleware.create inertia.version inner_handler request
+
+let classify_request request =
+  match Dream.header request "X-Inertia" with
+  | None -> `Full_page
+  | Some _ -> (
+      match
+        ( Dream.header request "X-Inertia-Partial-Component",
+          Dream.header request "X-Inertia-Partial-Data",
+          Dream.header request "X-Inertia-Partial-Except" )
+      with
+      | Some component, Some fields, _ ->
+          `Partial_include (component, String.split_on_char ',' fields)
+      | Some component, None, Some fields ->
+          `Partial_exclude (component, String.split_on_char ',' fields)
+      | _ -> `Inertia)
 
 let flash_key = "inertia-errors"
 
@@ -18,84 +36,10 @@ let get_flash_messages request =
   |> Option.map Yojson.Safe.from_string
   |> Option.value ~default:(`Assoc [])
 
-let add_flash_message request data =
+let add_error request data =
   let previous = get_flash_messages request in
   let data = Yojson.Safe.to_string (Yojson.Safe.Util.combine data previous) in
   Dream.add_flash_message request flash_key data
-
-let init ~version ~root_view () = { version; root_view }
-
-let page ~component ?(props = []) ~url () =
-  let props = StringMap.of_list props in
-  { component; props; url }
-
-let with_prop page key prop =
-  let updated_props = StringMap.add key prop page.props in
-  { page with props = updated_props }
-
-let with_url page url = { page with url }
-
-let is_inertia_request request =
-  Dream.header request "X-Inertia" |> Option.is_some
-
-let is_redirect response =
-  let status = Dream.status response in
-  status = `Moved_Permanently || status = `Found
-
-let request_path request =
-  begin
-    Dream.to_path (Dream.path request)
-  end
-  [@alert "-deprecated"]
-
-let set_location request response =
-  if Dream.is_redirection (Dream.status response) then
-    Dream.set_header response "Location" (request_path request)
-  else ()
-
-let set_csrf_cookie request response =
-  let valid_for = Ptime.Span.of_float_s 3600. |> Option.get in
-  let csrf = Dream.csrf_token request in
-  Dream.set_cookie ~encrypt:false ~http_only:false
-    ~expires:
-      Ptime.(
-        add_span (Ptime_clock.now ()) valid_for
-        |> Option.get |> Ptime.to_float_s)
-    response request "XSRF-TOKEN" csrf
-
-let is_non_post_redirect request response =
-  let meth = Dream.method_ request in
-  is_redirect response && (meth = `PUT || meth = `PATCH || meth = `DELETE)
-
-let update_status (response : Dream.response) =
-  let open Lwt.Syntax in
-  let* body = Dream.body response in
-  Dream.respond ~status:`See_Other ~headers:(Dream.all_headers response) body
-
-let process_response request inner_handler =
-  let open Lwt.Syntax in
-  let* response = inner_handler request in
-  set_location request response;
-  set_csrf_cookie request response;
-  if is_non_post_redirect request response then update_status response
-  else Lwt.return response
-
-let stale_response request =
-  Dream.empty
-    ~headers:[ ("X-Inertia-Location", request_path request) ]
-    `Conflict
-
-let middleware inertia inner_handler request =
-  let version =
-    Dream.header request "X-Inertia-Version" |> Option.value ~default:""
-  in
-  match
-    ( Dream.method_ request,
-      is_inertia_request request,
-      String.equal version inertia.version )
-  with
-  | `GET, true, false -> stale_response request
-  | _, _, _ -> process_response request inner_handler
 
 let shared_data_key = "Inertia-shared-data"
 
@@ -112,59 +56,50 @@ let add_shared_data request key prop =
   let updated_data = `Assoc ((key, prop) :: filtered_data) in
   Dream.set_session_field request key (Yojson.Safe.to_string updated_data)
 
-let page_to_string version page shared_data filter =
-  let filtered_props = filter page.props |> StringMap.to_list in
-  let merged_props =
-    Yojson.Safe.Util.combine shared_data
-      (`Assoc (List.map (fun (name, prop) -> (name, prop)) filtered_props))
-  in
+let error_props_key = "errors"
+
+let merge_data request page =
+  let flash_messages = [ (error_props_key, get_flash_messages request) ] in
+  let shared_data = get_shared_data request |> Yojson.Safe.Util.to_assoc in
+  List.concat [ flash_messages; shared_data; page.props ]
+
+let page_data version component data url =
   let json =
     `Assoc
       [
-        ("component", `String page.component);
-        ("props", merged_props);
-        ("url", `String page.url);
+        ("component", `String component);
+        ("props", data);
+        ("url", `String url);
         ("version", `String version);
       ]
   in
   Yojson.Safe.to_string json
 
-let include_filter req =
-  match Dream.header req "X-Inertia-Partial-Data" with
-  | Some fields ->
-      let fields = String.split_on_char ',' fields in
-      Some (fun prop -> List.mem prop fields)
-  | _ -> None
-
-let exclude_filter req =
-  match Dream.header req "X-Inertia-Partial-Except" with
-  | Some fields ->
-      let fields = String.split_on_char ',' fields in
-      Some (fun prop -> not (List.mem prop fields))
-  | _ -> None
-
-let extract_props_filter request =
-  match include_filter request with
-  | Some filter -> filter
-  | None -> exclude_filter request |> Option.value ~default:(fun _ -> true)
-
 let inertia_response inertia ?(headers = []) ?(status = `OK) request page =
-  let headers = ("X-Inertia", "true") :: headers in
-  let shared_data = get_shared_data request in
-  let flash_messages = get_flash_messages request in
-  let shared_data =
-    Yojson.Safe.Util.combine shared_data (`Assoc [ ("errors", flash_messages) ])
-  in
-  if is_inertia_request request then
-    let prop_name_filter = extract_props_filter request in
-    let page_data =
-      page_to_string inertia.version page shared_data
-        (StringMap.filter (fun k _ -> prop_name_filter k))
-    in
-    Dream.json ~headers ~status page_data
-  else
-    let page_data = page_to_string inertia.version page shared_data Fun.id in
-    Dream.html ~status ~headers @@ inertia.root_view page_data
+  let headers = ("Vary", "X-Inertia") :: ("X-Inertia", "true") :: headers in
+  let props = merge_data request page in
+  match classify_request request with
+  | `Full_page ->
+      Dream.html ~status ~headers
+      @@ inertia.root_view
+           (page_data inertia.version page.component (`Assoc props) page.url)
+  | `Inertia ->
+      Dream.json ~status ~headers
+      @@ page_data inertia.version page.component (`Assoc props) page.url
+  | `Partial_include (component, fields) ->
+      let filtered_props =
+        List.filter
+          (fun (k, _) -> String.equal k error_props_key || List.mem k fields)
+          props
+      in
+      Dream.json ~status ~headers
+      @@ page_data inertia.version component (`Assoc filtered_props) page.url
+  | `Partial_exclude (component, fields) ->
+      let filtered_props =
+        List.filter (fun (k, _) -> not (List.mem k fields)) props
+      in
+      Dream.json ~status ~headers
+      @@ page_data inertia.version component (`Assoc filtered_props) page.url
 
 module Helper = struct
   let root_view ~js ~css page_data =
@@ -196,30 +131,36 @@ module Helper = struct
     | `Exn exn -> Lwt.return @@ Printexc.to_string exn
     | `Response response -> Dream.body response
 
+  let request_path request =
+    begin
+      Dream.to_path (Dream.path request)
+    end
+    [@alert "-deprecated"]
+
   let error_handler inertia delegate error =
     let open Lwt.Syntax in
-    match error.Dream.request with
-    | None -> delegate error
-    | Some request ->
-        if is_inertia_request request then
-          let+ message = extract_message error.Dream.condition in
-          let status =
-            Option.map Dream.status error.Dream.response
-            |> Option.value ~default:`Internal_Server_Error
-            |> Dream.status_to_int
-          in
-          let url = request_path request in
-          let page =
-            page ~component:"Error"
-              ~props:[ ("status", `Int status); ("message", `String message) ]
-              ~url ()
-          in
-          let page_data =
-            page_to_string inertia.version page (`Assoc []) Fun.id
-          in
-          let headers =
-            [ ("X-Inertia", "true"); ("Content-Type", "application/json") ]
-          in
-          Some (Dream.response ~code:status ~headers page_data)
-        else delegate error
+    let request_type =
+      Option.map classify_request error.Dream.request
+      |> Option.value ~default:`Full_page
+    in
+    match request_type with
+    | `Full -> delegate error
+    | _ ->
+        (* error.request is guaranteed to be Some _ *)
+        let request = Option.get error.Dream.request in
+        let+ message = extract_message error.Dream.condition in
+        let status =
+          Option.map Dream.status error.Dream.response
+          |> Option.value ~default:`Internal_Server_Error
+          |> Dream.status_to_int
+        in
+        let props =
+          `Assoc [ ("status", `Int status); ("message", `String message) ]
+        in
+        let url = request_path request in
+        let page_data = page_data inertia.version "Error" props url in
+        let headers =
+          [ ("X-Inertia", "true"); ("Content-Type", "application/json") ]
+        in
+        Some (Dream.response ~code:status ~headers page_data)
 end

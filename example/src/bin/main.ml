@@ -66,7 +66,7 @@ module Controller = struct
         let user = json_to_user (Yojson.Safe.from_string json_body) in
 
         if String.equal user.first_name "John" then
-          Inertia.add_flash_message request
+          Inertia.add_error request
             (`Assoc [ ("first_name", `String "first name should not be John") ])
         else Model.add_user user;
 
