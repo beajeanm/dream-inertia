@@ -54,25 +54,16 @@ module Controller = struct
 
   let add_user request =
     let open Lwt.Syntax in
-    let csrf_token = Dream.header request "X-Xsrf-Token" |> Option.get in
-    let cookie_token =
-      Dream.cookie ~decrypt:false ~secure:false request "XSRF-TOKEN"
-      |> Option.get
-    in
-    let* csrf_result = Dream.verify_csrf_token request csrf_token in
-    match (csrf_result, String.equal cookie_token csrf_token) with
-    | `Ok, true ->
-        let* json_body = Dream.body request in
-        let user = json_to_user (Yojson.Safe.from_string json_body) in
+    let* json_body = Dream.body request in
+    let user = json_to_user (Yojson.Safe.from_string json_body) in
 
-        if String.equal user.first_name "John" then
-          Inertia.add_error request
-            (`Assoc [ ("first_name", `String "first name should not be John") ])
-        else Model.add_user user;
+    if String.equal user.first_name "John" then
+      Inertia.add_error request
+        (`Assoc [ ("first_name", `String "first name should not be John") ])
+    else Model.add_user user;
 
-        Inertia.render ~status:`Found request
-          (page ~component:"Users" ~url:"/users" ())
-    | __ -> Dream.empty `Bad_Request
+    Inertia.render ~status:`Found request
+      (page ~component:"Users" ~url:"/users" ())
 end
 
 let routes =

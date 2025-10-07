@@ -26,6 +26,29 @@ let update_status (response : Dream.response) =
   let* body = Dream.body response in
   Dream.respond ~status:`See_Other ~headers:(Dream.all_headers response) body
 
+let check_csrf request =
+  let check_csrf request =
+    let open Lwt.Syntax in
+    let header_token = Dream.header request "X-Xsrf-Token" |> Option.get in
+    let cookie_token =
+      Dream.cookie ~decrypt:false ~secure:false request "XSRF-TOKEN"
+      |> Option.value ~default:""
+    in
+    let+ check_result = Dream.verify_csrf_token request header_token in
+    match (check_result, String.equal cookie_token header_token) with
+    | `Ok, true -> Ok ()
+    | _ -> Error "Inavlid token"
+  in
+  match Dream.method_ request with
+  (* Safe methods *)
+  | `OPTIONS | `GET | `TRACE | `HEAD -> Lwt_result.return ()
+  (* Dream.method_ should have normalized the method. *)
+  | `Method _ -> Lwt_result.fail "Unexpected method"
+  (* We are not a proxy, not sure why we would need this. *)
+  | `CONNECT -> Lwt_result.fail "Unsupported method: connect"
+  (* Check for CSRF token for everything else*)
+  | `DELETE | `PUT | `POST | `PATCH -> check_csrf request
+
 let process_response request inner_handler =
   let open Lwt.Syntax in
   let set_location request response =
@@ -33,11 +56,19 @@ let process_response request inner_handler =
       Dream.set_header response "Location" (Dream.target request)
     else ()
   in
-  let* response = inner_handler request in
-  set_location request response;
-  set_csrf_cookie request response;
-  if is_non_post_redirect request response then update_status response
-  else Lwt.return response
+  (* Check csrf token before doing any processing. *)
+  let* csrf_check = check_csrf request in
+  match csrf_check with
+  | Ok () ->
+      let* response = inner_handler request in
+      set_location request response;
+      (* Refreshing the csrf token on every request sounds a bit excessive, but it will do for now.*)
+      set_csrf_cookie request response;
+      if is_non_post_redirect request response then update_status response
+      else Lwt.return response
+  | Error _ ->
+      log.error (fun log -> log "Invalid csrf token.");
+      Dream.empty `Bad_Request
 
 let stale_response request =
   log.info (fun log -> log "Stale version detected");
