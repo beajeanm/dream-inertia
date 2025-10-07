@@ -21,6 +21,6 @@
   (yojson
    (>= 2.2.1))
   (dream
-   (>= 1.0.0~alpha6))
+   (>= 1.0.0~alpha8))
   ocaml
   dune))

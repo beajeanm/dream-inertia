@@ -9,7 +9,7 @@ homepage: "https://github.com/beajeanm/dream-inertia"
 bug-reports: "https://github.com/beajeanm/dream-inertia/issues"
 depends: [
   "yojson" {>= "2.2.1"}
-  "dream" {>= "1.0.0~alpha6"}
+  "dream" {>= "1.0.0~alpha8"}
   "ocaml"
   "dune" {>= "3.15"}
   "odoc" {with-doc}
