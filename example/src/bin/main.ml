@@ -52,7 +52,7 @@ module Controller = struct
     let users_json = `List (List.map user_to_json !users) in
     page ~component:"Users" ~props:[ ("users", users_json) ] ~url:"/users" ()
 
-  let add_user inertia request =
+  let add_user request =
     let open Lwt.Syntax in
     let csrf_token = Dream.header request "X-Xsrf-Token" |> Option.get in
     let cookie_token =
@@ -70,22 +70,19 @@ module Controller = struct
             (`Assoc [ ("first_name", `String "first name should not be John") ])
         else Model.add_user user;
 
-        Inertia.inertia_response inertia ~status:`Found request
+        Inertia.render ~status:`Found request
           (page ~component:"Users" ~url:"/users" ())
     | __ -> Dream.empty `Bad_Request
 end
 
-let routes inertia =
+let routes =
   let open Controller in
   [
-    Dream.get "/" (fun req ->
-        Inertia.inertia_response inertia req @@ home_page ());
-    Dream.get "/count" (fun req ->
-        Inertia.inertia_response inertia req @@ count ());
-    Dream.get "/users" (fun req ->
-        Inertia.inertia_response inertia req @@ users_page ());
+    Dream.get "/" (fun req -> Inertia.render req @@ home_page ());
+    Dream.get "/count" (fun req -> Inertia.render req @@ count ());
+    Dream.get "/users" (fun req -> Inertia.render req @@ users_page ());
     Dream.get "/error" (fun _ -> failwith "This is a server side error!");
-    Dream.post "/users" (add_user inertia);
+    Dream.post "/users" add_user;
     Dream.get "/favicon.ico" (Loader.asset_loader "" "favicon.ico");
     Dream.get "/robots.txt" (Loader.asset_loader "" "robots.txt");
     Dream.get "/assets/**" @@ Dream.static ~loader:Loader.asset_loader "assets/";
@@ -116,11 +113,8 @@ let () =
   let css = find_css manifest in
   let version = parse_version manifest in
   let root_view = Inertia.Helper.root_view ~js ~css in
-  let inertia = Inertia.init ~version ~root_view () in
 
-  Dream.run ~adjust_terminal:false
-    ~error_handler:
-      (Inertia.Helper.error_handler inertia Dream.debug_error_handler)
-  @@ Dream.logger @@ Dream.origin_referrer_check @@ Dream.memory_sessions
-  @@ Dream.flash @@ Inertia.middleware inertia
-  @@ Dream.router (routes inertia)
+  Dream.run @@ Dream.logger @@ Dream.origin_referrer_check
+  @@ Dream.memory_sessions @@ Dream.flash
+  @@ Inertia.middleware ~version ~root_view ()
+  @@ Dream.router routes

@@ -15,13 +15,12 @@ Then, initialize the Inertia driver and add the middleware to your Dream applica
 ```ocaml
 let () =
   let root_view = Inertia.Helper.root_view ~js:"/assets/main.js" ~css:"/assets/main.css" in
-  let inertia = Inertia.init ~version:"1.0.0" ~root_view () in
 
   Dream.run
   @@ Dream.logger
   @@ Dream.memory_sessions
   @@ Dream.flash
-  @@ Inertia.middleware inertia
+  @@ Inertia.middleware ~version:"1.0.0" ~root_view ()
   @@ Dream.router [ (* your routes *) ]
 ```
 

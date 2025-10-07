@@ -1,4 +1,4 @@
-type t = { version : string; root_view : string -> string }
+type t = { mutable version : string; mutable root_view : string -> string }
 
 type page = {
   (* The name of view template in view/src/Pages *)
@@ -8,11 +8,33 @@ type page = {
   url : string;
 }
 
-let init ~version ~root_view () = { version; root_view }
+let config : t =
+  {
+    version = "";
+    root_view =
+      (fun _ ->
+        {html|
+<html>
+  <head>
+    <title>No root template set</title>
+  </head>
+  <body>
+    <h1>No root template set</h1>
+    <p>You need to set a root template using <code>Inertia.middleware</code> before using Inertia.</p>
+    <pre>
+      %s
+    </pre>
+  </body>
+  |html});
+  }
+
 let page ~component ?(props = []) ~url () = { component; props; url }
 
-let middleware inertia inner_handler request =
-  Middleware.create inertia.version inner_handler request
+let middleware ~version ~root_view () =
+  config.version <- version;
+  config.root_view <- root_view;
+  fun inner_handler request ->
+    Middleware.create config.version inner_handler request
 
 let classify_request request =
   match Dream.header request "X-Inertia" with
@@ -75,17 +97,17 @@ let page_data version component data url =
   in
   Yojson.Safe.to_string json
 
-let inertia_response inertia ?(headers = []) ?(status = `OK) request page =
+let render ?(headers = []) ?(status = `OK) request page =
   let headers = ("Vary", "X-Inertia") :: ("X-Inertia", "true") :: headers in
   let props = merge_data request page in
   match classify_request request with
   | `Full_page ->
       Dream.html ~status ~headers
-      @@ inertia.root_view
-           (page_data inertia.version page.component (`Assoc props) page.url)
+      @@ config.root_view
+           (page_data config.version page.component (`Assoc props) page.url)
   | `Inertia ->
       Dream.json ~status ~headers
-      @@ page_data inertia.version page.component (`Assoc props) page.url
+      @@ page_data config.version page.component (`Assoc props) page.url
   | `Partial_include (component, fields) ->
       let filtered_props =
         List.filter
@@ -93,13 +115,13 @@ let inertia_response inertia ?(headers = []) ?(status = `OK) request page =
           props
       in
       Dream.json ~status ~headers
-      @@ page_data inertia.version component (`Assoc filtered_props) page.url
+      @@ page_data config.version component (`Assoc filtered_props) page.url
   | `Partial_exclude (component, fields) ->
       let filtered_props =
         List.filter (fun (k, _) -> not (List.mem k fields)) props
       in
       Dream.json ~status ~headers
-      @@ page_data inertia.version component (`Assoc filtered_props) page.url
+      @@ page_data config.version component (`Assoc filtered_props) page.url
 
 module Helper = struct
   let root_view ~js ~css page_data =
@@ -125,44 +147,4 @@ module Helper = struct
       css
       (Dream.html_escape @@ page_data)
       js
-
-  let extract_message = function
-    | `String msg -> Lwt.return msg
-    | `Exn exn -> Lwt.return @@ Printexc.to_string exn
-    | `Response response -> Dream.body response
-
-  let request_path request =
-    begin [@alert "-deprecated"]
-      Dream.to_path (Dream.path request)
-    end
-
-  let error_handler inertia delegate error =
-    let open Lwt.Syntax in
-    let request_type =
-      Option.map classify_request error.Dream.request
-      |> Option.value ~default:`Full_page
-    in
-    match request_type with
-    | `Full_page -> delegate error
-    | _ ->
-        (* error.request is guaranteed to be Some _ *)
-        let error_status =
-          Option.map Dream.status error.Dream.response
-          |> Option.value ~default:`Internal_Server_Error
-        in
-        (* Conflict are Inertiajs asset versioning resolution, we can't redirect to our error component here. *)
-        if error_status == `Conflict then delegate error
-        else
-          let error_code = Dream.status_to_int error_status in
-          let request = Option.get error.Dream.request in
-          let+ message = extract_message error.Dream.condition in
-          let props =
-            `Assoc [ ("status", `Int error_code); ("message", `String message) ]
-          in
-          let url = request_path request in
-          let page_data = page_data inertia.version "Error" props url in
-          let headers =
-            [ ("X-Inertia", "true"); ("Content-Type", "application/json") ]
-          in
-          Some (Dream.response ~code:error_code ~headers page_data)
 end
