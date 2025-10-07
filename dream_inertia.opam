@@ -8,10 +8,13 @@ license: "MIT"
 homepage: "https://github.com/beajeanm/dream-inertia"
 bug-reports: "https://github.com/beajeanm/dream-inertia/issues"
 depends: [
-  "yojson" {>= "2.2.1"}
+  "ocaml" {>= "5.0"}
+  "dune" {>= "3.15" & >= "3.20"}
+  "yojson" {>= "3.0"}
   "dream" {>= "1.0.0~alpha8"}
-  "ocaml"
-  "dune" {>= "3.15"}
+  "ocaml-lsp-server" {with-dev-setup & >= "1.19.0"}
+  "ocamlformat" {with-dev-setup & = "0.27.0"}
+  "utop" {with-dev-setup & >= "2.15.0"}
   "odoc" {with-doc}
 ]
 build: [

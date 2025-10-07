@@ -18,9 +18,24 @@
  (synopsis "A dream adapter for Inertia.js")
  (description "A dream adapter for Inertia.js")
  (depends
+  (ocaml
+   (>= 5.0))
+  (dune
+   (>= 3.20))
   (yojson
-   (>= 2.2.1))
+   (>= 3.0))
   (dream
    (>= 1.0.0~alpha8))
-  ocaml
-  dune))
+  ; Dev tools
+  (ocaml-lsp-server
+   (and
+    :with-dev-setup
+    (>= 1.19.0)))
+  (ocamlformat
+   (and
+    :with-dev-setup
+    (= 0.27.0)))
+  (utop
+   (and
+    :with-dev-setup
+    (>= 2.15.0)))))
