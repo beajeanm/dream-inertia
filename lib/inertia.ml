@@ -132,10 +132,9 @@ module Helper = struct
     | `Response response -> Dream.body response
 
   let request_path request =
-    begin
+    begin [@alert "-deprecated"]
       Dream.to_path (Dream.path request)
     end
-    [@alert "-deprecated"]
 
   let error_handler inertia delegate error =
     let open Lwt.Syntax in
@@ -144,23 +143,26 @@ module Helper = struct
       |> Option.value ~default:`Full_page
     in
     match request_type with
-    | `Full -> delegate error
+    | `Full_page -> delegate error
     | _ ->
         (* error.request is guaranteed to be Some _ *)
-        let request = Option.get error.Dream.request in
-        let+ message = extract_message error.Dream.condition in
-        let status =
+        let error_status =
           Option.map Dream.status error.Dream.response
           |> Option.value ~default:`Internal_Server_Error
-          |> Dream.status_to_int
         in
-        let props =
-          `Assoc [ ("status", `Int status); ("message", `String message) ]
-        in
-        let url = request_path request in
-        let page_data = page_data inertia.version "Error" props url in
-        let headers =
-          [ ("X-Inertia", "true"); ("Content-Type", "application/json") ]
-        in
-        Some (Dream.response ~code:status ~headers page_data)
+        (* Conflict are Inertiajs asset versioning resolution, we can't redirect to our error component here. *)
+        if error_status == `Conflict then delegate error
+        else
+          let error_code = Dream.status_to_int error_status in
+          let request = Option.get error.Dream.request in
+          let+ message = extract_message error.Dream.condition in
+          let props =
+            `Assoc [ ("status", `Int error_code); ("message", `String message) ]
+          in
+          let url = request_path request in
+          let page_data = page_data inertia.version "Error" props url in
+          let headers =
+            [ ("X-Inertia", "true"); ("Content-Type", "application/json") ]
+          in
+          Some (Dream.response ~code:error_code ~headers page_data)
 end

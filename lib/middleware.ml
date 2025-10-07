@@ -1,11 +1,7 @@
+let log = Dream.sub_log "inertiajs"
+
 let is_inertia_request request =
   Dream.header request "X-Inertia" |> Option.is_some
-
-let request_path request =
-  begin
-    Dream.to_path (Dream.path request)
-  end
-  [@alert "-deprecated"]
 
 let set_csrf_cookie request response =
   let valid_for = Ptime.Span.of_float_s 3600. |> Option.get in
@@ -34,7 +30,7 @@ let process_response request inner_handler =
   let open Lwt.Syntax in
   let set_location request response =
     if Dream.is_redirection (Dream.status response) then
-      Dream.set_header response "Location" (request_path request)
+      Dream.set_header response "Location" (Dream.target request)
     else ()
   in
   let* response = inner_handler request in
@@ -44,8 +40,9 @@ let process_response request inner_handler =
   else Lwt.return response
 
 let stale_response request =
+  log.info (fun log -> log "Stale version detected");
   Dream.empty
-    ~headers:[ ("X-Inertia-Location", request_path request) ]
+    ~headers:[ ("X-Inertia-Location", Dream.target request) ]
     `Conflict
 
 let create version inner_handler request =
