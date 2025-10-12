@@ -26,6 +26,8 @@
    (>= 3.0))
   (dream
    (>= 1.0.0~alpha8))
+  (alcotest :with-test)
+  (alcotest-lwt :with-test)
   ; Dev tools
   (ocaml-lsp-server
    (and
