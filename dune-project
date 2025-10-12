@@ -29,6 +29,10 @@
   (alcotest :with-test)
   (alcotest-lwt :with-test)
   ; Dev tools
+  (bisect_ppx
+   (and
+    :with-dev-setup
+    (>= 2.5.0)))
   (ocaml-lsp-server
    (and
     :with-dev-setup

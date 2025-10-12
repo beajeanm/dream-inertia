@@ -14,6 +14,7 @@ depends: [
   "dream" {>= "1.0.0~alpha8"}
   "alcotest" {with-test}
   "alcotest-lwt" {with-test}
+  "bisect_ppx" {with-dev-setup & >= "2.5.0"}
   "ocaml-lsp-server" {with-dev-setup & >= "1.19.0"}
   "ocamlformat" {with-dev-setup & = "0.27.0"}
   "utop" {with-dev-setup & >= "2.15.0"}

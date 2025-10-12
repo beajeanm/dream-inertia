@@ -1,6 +1,7 @@
 *~
 _build
 _opam
+_coverage
 .env
 example/node_modules
 example/dist

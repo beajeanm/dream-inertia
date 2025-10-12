@@ -1,4 +1,6 @@
 (library
  (name dream_inertia)
  (public_name dream_inertia)
- (libraries dream yojson))
+ (libraries dream yojson)
+ (instrumentation
+  (backend bisect_ppx)))
