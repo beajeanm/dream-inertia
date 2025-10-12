@@ -1,9 +1,7 @@
 type t = { mutable version : string; mutable root_view : string -> string }
 
 type page = {
-  (* The name of view template in view/src/Pages *)
   component : string;
-  (* The data to create the vue component *)
   props : (string * Yojson.Safe.t) list;
   url : string;
 }
