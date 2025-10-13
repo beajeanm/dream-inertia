@@ -63,43 +63,48 @@ let classify_request request =
           `Partial_exclude (component, String.split_on_char ',' fields)
       | _ -> `Inertia)
 
-let flash_key = "inertia-errors"
-
-let get_flash_messages request =
-  List.assoc_opt ~eq:String.equal flash_key (Dream.flash_messages request)
-  |> Option.map Yojson.Safe.from_string
-  |> Option.value ~default:(`Assoc [])
-
-let add_error request data =
-  let previous = get_flash_messages request in
-  let data = Yojson.Safe.to_string (Yojson.Safe.Util.combine data previous) in
-  Dream.add_flash_message request flash_key data
-
+let flash_key = "Inertia-errors"
 let shared_data_key = "Inertia-shared-data"
 
-let get_shared_data request =
+let flash_errors request =
+  let open Option.Infix in
+  let prefix = flash_key ^ "." in
+  List.filter_map
+    (fun (key, value) ->
+      let+ key = String.chop_prefix ~pre:prefix key in
+      (key, value))
+    (Dream.flash_messages request)
+  |> List.Assoc.map_values Yojson.Safe.from_string
+
+let add_error request key data =
+  Dream.add_flash_message request
+    (Format.asprintf "%s.%s" flash_key key)
+    (Yojson.Safe.to_string data)
+
+let shared_data request =
   Dream.session_field request shared_data_key
   |> Option.map Yojson.Safe.from_string
-  |> Option.value ~default:(`Assoc [])
+  |> Option.map Yojson.Safe.Util.to_assoc
+  |> Option.value ~default:[]
 
 let add_shared_data request key prop =
-  let current_data = get_shared_data request |> Yojson.Safe.Util.to_assoc in
-  let filtered_data =
-    List.filter (fun (k, _) -> not (String.equal k key)) current_data
-  in
-  let updated_data = `Assoc ((key, prop) :: filtered_data) in
+  let current_data = shared_data request in
+  let updated = List.Assoc.set ~eq:String.equal key prop current_data in
   Dream.set_session_field request shared_data_key
-    (Yojson.Safe.to_string updated_data)
+    (Yojson.Safe.to_string (`Assoc updated))
 
 let error_props_key = "errors"
 
 let merge_data request page =
-  let flash_messages = [ (error_props_key, get_flash_messages request) ] in
-  let shared_data = get_shared_data request |> Yojson.Safe.Util.to_assoc in
-  List.concat [ flash_messages; shared_data; page.Page.props ]
+  let add_prop list (k, v) = List.Assoc.set ~eq:String.equal k v list in
+  let props =
+    add_prop page.Page.props (error_props_key, `Assoc (flash_errors request))
+  in
+  (* shared data will overwrite regular props. *)
+  List.fold_left add_prop (shared_data request) props
 
 let page_data version component data url deferred =
-  let json_data =
+  let base_data =
     [
       ("component", `String component);
       ("props", data);
@@ -107,8 +112,8 @@ let page_data version component data url deferred =
       ("version", `String version);
     ]
   in
-  let json_data =
-    if List.is_empty deferred then json_data
+  let deferred_data =
+    if List.is_empty deferred then []
     else
       let groupped_props =
         List.group_by
@@ -123,9 +128,9 @@ let page_data version component data url deferred =
             (group_name, `List keys))
           groupped_props
       in
-      ("deferredProps", `Assoc props_keys) :: json_data
+      [ ("deferredProps", `Assoc props_keys) ]
   in
-  Yojson.Safe.to_string (`Assoc json_data)
+  Yojson.Safe.to_string (`Assoc (List.concat [ base_data; deferred_data ]))
 
 let extract_deferred_props page fields =
   List.filter
@@ -152,8 +157,13 @@ let render ?(headers = []) ?(status = `OK) request page =
           (fun (k, _) -> String.equal k error_props_key || List.mem k fields)
           props
       in
+      (* defer props key will overwrite regular props *)
       let all_props =
-        List.concat [ extract_deferred_props page fields; filtered_props ]
+        List.fold_left
+          (fun props (key, value) ->
+            List.Assoc.set ~eq:String.equal key value props)
+          filtered_props
+          (extract_deferred_props page fields)
       in
       Dream.json ~status ~headers
       @@ page_data config.version component (`Assoc all_props) page.url []
