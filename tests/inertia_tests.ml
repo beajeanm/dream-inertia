@@ -68,49 +68,76 @@ let missing_xsrf_token _switch () =
   let status_code = Dream.status resp |> Dream.status_to_int in
   Alcotest.(check int) "Responded Bad request" 400 status_code
 
-let extract_session response =
-  let token_cookie =
-    Dream.headers response "set-cookie"
-    |> List.filter (String.starts_with ~prefix:"dream.session")
-    |> List.hd
-  in
-  String.split_on_char ';' token_cookie
-  |> List.hd |> String.split_on_char '=' |> List.tl |> List.hd
+type session_data = { session : string; token : string }
 
-let extract_xsrf_token response =
-  let token_cookie =
+let extract_cookie name response =
+  let cookies =
     Dream.headers response "set-cookie"
-    |> List.filter (String.starts_with ~prefix:"XSRF-TOKEN")
-    |> List.hd
+    |> List.filter (String.starts_with ~prefix:name)
   in
-  String.split_on_char ';' token_cookie
-  |> List.hd |> String.split_on_char '=' |> List.tl |> List.hd
+  match cookies with
+  | cookie :: _ ->
+      String.split_on_char ';' cookie
+      |> List.hd |> String.split_on_char '=' |> List.tl |> List.hd
+  | _ -> ""
 
-let invalid_xsrf_token _switch () =
+let session_data () =
   let cookie_req = Dream.request ~target:"/home" "" in
   set_headers cookie_req;
-  let* cookie_resp = render_page default_page cookie_req in
+  let+ cookie_resp = render_page default_page cookie_req in
+  {
+    session = extract_cookie "dream.session" cookie_resp;
+    token = extract_cookie "XSRF-TOKEN" cookie_resp;
+  }
+
+let set_session req session =
+  Dream.set_header req "Cookie"
+    (Format.asprintf "%s=%s" "dream.session" session)
+
+let invalid_xsrf_token _switch () =
+  let* data = session_data () in
   let req = Dream.request ~target:"/home" "" ~method_:`POST in
   set_headers req;
   Dream.set_header req "X-Xsrf-Token" "Not a valid token";
-  Dream.set_header req "Cookie"
-    (Format.asprintf "%s=%s" "dream.session" (extract_session cookie_resp));
+  set_session req data.session;
   let+ resp = render_page default_page @@ req in
   let status_code = Dream.status resp |> Dream.status_to_int in
   Alcotest.(check int) "Responded Bad Response" 400 status_code
 
 let valid_xsrf _switch () =
-  let cookie_req = Dream.request ~target:"/home" "" in
-  set_headers cookie_req;
-  let* cookie_resp = render_page default_page cookie_req in
+  let* data = session_data () in
   let req = Dream.request ~target:"/home" "" ~method_:`POST in
   set_headers req;
-  Dream.set_header req "X-Xsrf-Token" (extract_xsrf_token cookie_resp);
-  Dream.set_header req "Cookie"
-    (Format.asprintf "%s=%s" "dream.session" (extract_session cookie_resp));
+  Dream.set_header req "X-Xsrf-Token" data.token;
+  set_session req data.session;
   let+ resp = render_page default_page @@ req in
   let status_code = Dream.status resp |> Dream.status_to_int in
   Alcotest.(check int) "Responded Ok" 200 status_code
+
+let shared_data _switch () =
+  let inertia = create_inertia () in
+  let key = "test-shared-key" in
+  let data = `Assoc [ ("test-shared-data", `String "test-value") ] in
+  let handler req =
+    let* () = Inertia.add_shared_data req key data in
+    let page_handler req = Inertia.render req default_page in
+    run_with_middleware ~inertia page_handler req
+  in
+  let* session_data = session_data () in
+  let req = Dream.request ~target:"/home" "" in
+  set_headers req;
+  set_session req session_data.session;
+  let* resp = run_with_middleware handler req in
+  let+ body = Dream.body resp in
+  let json_body = Yojson.Safe.from_string body in
+  let shared_props =
+    Yojson.Safe.Util.member "props" json_body
+    |> Yojson.Safe.Util.to_assoc |> List.assoc key
+  in
+  Alcotest.(check string)
+    "Received shared data"
+    (Yojson.Safe.to_string data)
+    (Yojson.Safe.to_string shared_props)
 
 let () =
   let test msg f = Alcotest_lwt.test_case msg `Quick f in
@@ -129,4 +156,5 @@ let () =
              test "Invalid XSRF token" invalid_xsrf_token;
              test "Valid XSRF" valid_xsrf;
            ] );
+         ("Props", [ test "Shared data" shared_data ]);
        ]

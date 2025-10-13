@@ -74,7 +74,8 @@ let add_shared_data request key prop =
     List.filter (fun (k, _) -> not (String.equal k key)) current_data
   in
   let updated_data = `Assoc ((key, prop) :: filtered_data) in
-  Dream.set_session_field request key (Yojson.Safe.to_string updated_data)
+  Dream.set_session_field request shared_data_key
+    (Yojson.Safe.to_string updated_data)
 
 let error_props_key = "errors"
 
