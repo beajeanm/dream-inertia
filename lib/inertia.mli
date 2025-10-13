@@ -1,22 +1,31 @@
-type page = {
-  component : string;  (** The name of the JavaScript page component. *)
-  props : (string * Yojson.Safe.t) list;  (** The page props (data). *)
-  url : string;  (** The page URL. *)
-}
+module Page : sig
+  type deferred_prop
+
+  type t = {
+    component : string;  (** The name of the JavaScript page component. *)
+    props : (string * Yojson.Safe.t) list;  (** The page props (data). *)
+    deferred_props : deferred_prop list;  (** The page deferred props *)
+    url : string;  (** The page URL. *)
+  }
+end
+
+val defer :
+  ?group:string -> key:string -> (unit -> Yojson.Safe.t) -> Page.deferred_prop
 
 val page :
   component:string ->
   ?props:(string * Yojson.Safe.t) list ->
+  ?deferred_props:Page.deferred_prop list ->
   url:string ->
   unit ->
-  page
+  Page.t
 (** [page component props URL ()] create a new page. *)
 
 val render :
   ?headers:(string * string) list ->
   ?status:Dream.status ->
   Dream.request ->
-  page ->
+  Page.t ->
   Dream.response Lwt.t
 (** [render ~headers ~status request page] Create a new Dream.response by
     rendering the page data. The page will be rendered either as text/html for

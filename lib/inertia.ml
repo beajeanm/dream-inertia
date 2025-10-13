@@ -1,10 +1,21 @@
+open Containers
+
 type t = { mutable version : string; mutable root_view : string -> string }
 
-type page = {
-  component : string;
-  props : (string * Yojson.Safe.t) list;
-  url : string;
-}
+module Page = struct
+  type deferred_prop = {
+    group : string;
+    key : string;
+    callback : unit -> Yojson.Safe.t;
+  }
+
+  type t = {
+    component : string;
+    props : (string * Yojson.Safe.t) list;
+    deferred_props : deferred_prop list;
+    url : string;
+  }
+end
 
 let config : t =
   {
@@ -26,7 +37,10 @@ let config : t =
   |html});
   }
 
-let page ~component ?(props = []) ~url () = { component; props; url }
+let defer ?(group = "default") ~key callback = Page.{ group; key; callback }
+
+let page ~component ?(props = []) ?(deferred_props = []) ~url () =
+  Page.{ component; props; deferred_props; url }
 
 let middleware ~version ~root_view () =
   config.version <- version;
@@ -52,7 +66,7 @@ let classify_request request =
 let flash_key = "inertia-errors"
 
 let get_flash_messages request =
-  List.assoc_opt flash_key (Dream.flash_messages request)
+  List.assoc_opt ~eq:String.equal flash_key (Dream.flash_messages request)
   |> Option.map Yojson.Safe.from_string
   |> Option.value ~default:(`Assoc [])
 
@@ -82,19 +96,42 @@ let error_props_key = "errors"
 let merge_data request page =
   let flash_messages = [ (error_props_key, get_flash_messages request) ] in
   let shared_data = get_shared_data request |> Yojson.Safe.Util.to_assoc in
-  List.concat [ flash_messages; shared_data; page.props ]
+  List.concat [ flash_messages; shared_data; page.Page.props ]
 
-let page_data version component data url =
-  let json =
-    `Assoc
-      [
-        ("component", `String component);
-        ("props", data);
-        ("url", `String url);
-        ("version", `String version);
-      ]
+let page_data version component data url deferred =
+  let json_data =
+    [
+      ("component", `String component);
+      ("props", data);
+      ("url", `String url);
+      ("version", `String version);
+    ]
   in
-  Yojson.Safe.to_string json
+  let json_data =
+    if List.is_empty deferred then json_data
+    else
+      let groupped_props =
+        List.group_by
+          ~eq:(fun dp1 dp2 -> String.equal dp1.Page.group dp2.Page.group)
+          deferred
+      in
+      let props_keys =
+        List.map
+          (fun props ->
+            let group_name = (List.hd props).Page.group in
+            let keys = List.map Page.(fun dp -> `String dp.key) props in
+            (group_name, `List keys))
+          groupped_props
+      in
+      ("deferredProps", `Assoc props_keys) :: json_data
+  in
+  Yojson.Safe.to_string (`Assoc json_data)
+
+let extract_deferred_props page fields =
+  List.filter
+    (fun dprop -> List.mem dprop.Page.key fields)
+    page.Page.deferred_props
+  |> List.map (fun dprop -> Page.(dprop.key, dprop.callback ()))
 
 let render ?(headers = []) ?(status = `OK) request page =
   let headers = ("Vary", "X-Inertia") :: ("X-Inertia", "true") :: headers in
@@ -103,24 +140,29 @@ let render ?(headers = []) ?(status = `OK) request page =
   | `Full_page ->
       Dream.html ~status ~headers
       @@ config.root_view
-           (page_data config.version page.component (`Assoc props) page.url)
+           (page_data config.version page.component (`Assoc props) page.url
+              page.deferred_props)
   | `Inertia ->
       Dream.json ~status ~headers
       @@ page_data config.version page.component (`Assoc props) page.url
+           page.deferred_props
   | `Partial_include (component, fields) ->
       let filtered_props =
         List.filter
           (fun (k, _) -> String.equal k error_props_key || List.mem k fields)
           props
       in
+      let all_props =
+        List.concat [ extract_deferred_props page fields; filtered_props ]
+      in
       Dream.json ~status ~headers
-      @@ page_data config.version component (`Assoc filtered_props) page.url
+      @@ page_data config.version component (`Assoc all_props) page.url []
   | `Partial_exclude (component, fields) ->
       let filtered_props =
         List.filter (fun (k, _) -> not (List.mem k fields)) props
       in
       Dream.json ~status ~headers
-      @@ page_data config.version component (`Assoc filtered_props) page.url
+      @@ page_data config.version component (`Assoc filtered_props) page.url []
 
 module Helper = struct
   let root_view ~js ~css page_data =

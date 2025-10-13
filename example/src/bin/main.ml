@@ -37,12 +37,16 @@ module Controller = struct
   open Model
 
   let home_page () =
+    let deferred =
+      Inertia.defer ~key:"permissions" (fun () ->
+          `List [ `String "Deferred Hello" ])
+    in
     page ~component:"Home"
       ~props:
         [
           ("counter", `Int !counter); ("message", `String "🐫 You've clicked: ");
         ]
-      ~url:"/" ()
+      ~deferred_props:[ deferred ] ~url:"/" ()
 
   let count () =
     incr counter;

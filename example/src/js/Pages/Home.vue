@@ -1,7 +1,7 @@
 <script setup>
 import { Link } from "@inertiajs/vue3";
 
-defineProps({ counter: Number, message: String });
+defineProps({ counter: Number, message: String, permissions: Array });
 </script>
 
 <template>
@@ -17,6 +17,18 @@ defineProps({ counter: Number, message: String });
         <Link href="/error" as="button" type="button" class="btn btn-danger">Error</Link>
       </div>
     </div>
+
+    <Deferred data="permissions">
+      <template #fallback>
+        <div>Loading...</div>
+      </template>
+
+      <template  #default>
+        <div v-for="permission in permissions">
+          <h3>{{permission}}</h3>
+        </div>
+      </template>
+    </Deferred>
   </main>
 </template>
 

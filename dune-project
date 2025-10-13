@@ -26,6 +26,8 @@
    (>= 3.0))
   (dream
    (>= 1.0.0~alpha8))
+  (containers
+   (>= 3.16))
   (alcotest :with-test)
   (alcotest-lwt :with-test)
   ; Dev tools
