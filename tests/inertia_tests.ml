@@ -86,35 +86,15 @@ let extract_xsrf_token response =
   String.split_on_char ';' token_cookie
   |> List.hd |> String.split_on_char '=' |> List.tl |> List.hd
 
-let missing_xsrf_cookie _switch () =
-  let cookie_req = Dream.request ~target:"/home" "" in
-  set_headers cookie_req;
-  let* cookie_resp = render_page default_page cookie_req in
-  let token = extract_xsrf_token cookie_resp in
-  let req = Dream.request ~target:"/home" "" ~method_:`POST in
-  set_headers req;
-  Dream.set_header req "X-Xsrf-Token" token;
-  let+ resp = render_page default_page @@ req in
-  let status_code = Dream.status resp |> Dream.status_to_int in
-  Alcotest.(check int) "Responded Bad request" 400 status_code
-
 let invalid_xsrf_token _switch () =
   let cookie_req = Dream.request ~target:"/home" "" in
   set_headers cookie_req;
-
   let* cookie_resp = render_page default_page cookie_req in
-
   let req = Dream.request ~target:"/home" "" ~method_:`POST in
   set_headers req;
   Dream.set_header req "X-Xsrf-Token" "Not a valid token";
   Dream.set_header req "Cookie"
-    (Format.asprintf "%s=%s;%s=%s" "XSRF-TOKEN"
-       (extract_xsrf_token cookie_resp)
-       "dream.session"
-       (extract_session cookie_resp));
-
-  Dream.error (fun log -> log "%s" (extract_session cookie_resp));
-
+    (Format.asprintf "%s=%s" "dream.session" (extract_session cookie_resp));
   let+ resp = render_page default_page @@ req in
   let status_code = Dream.status resp |> Dream.status_to_int in
   Alcotest.(check int) "Responded Bad Response" 400 status_code
@@ -122,20 +102,12 @@ let invalid_xsrf_token _switch () =
 let valid_xsrf _switch () =
   let cookie_req = Dream.request ~target:"/home" "" in
   set_headers cookie_req;
-
   let* cookie_resp = render_page default_page cookie_req in
-
   let req = Dream.request ~target:"/home" "" ~method_:`POST in
   set_headers req;
   Dream.set_header req "X-Xsrf-Token" (extract_xsrf_token cookie_resp);
   Dream.set_header req "Cookie"
-    (Format.asprintf "%s=%s;%s=%s" "XSRF-TOKEN"
-       (extract_xsrf_token cookie_resp)
-       "dream.session"
-       (extract_session cookie_resp));
-
-  Dream.error (fun log -> log "%s" (extract_session cookie_resp));
-
+    (Format.asprintf "%s=%s" "dream.session" (extract_session cookie_resp));
   let+ resp = render_page default_page @@ req in
   let status_code = Dream.status resp |> Dream.status_to_int in
   Alcotest.(check int) "Responded Ok" 200 status_code
@@ -154,7 +126,6 @@ let () =
          ( "CSRF",
            [
              test "Missing XSRF token" missing_xsrf_token;
-             test "Missing XSRF cookie" missing_xsrf_cookie;
              test "Invalid XSRF token" invalid_xsrf_token;
              test "Valid XSRF" valid_xsrf;
            ] );

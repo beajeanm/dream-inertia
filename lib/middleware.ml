@@ -30,17 +30,11 @@ let check_csrf request =
   let check_csrf request =
     let open Lwt.Syntax in
     let header_token = Dream.header request "X-Xsrf-Token" in
-    let cookie_token =
-      Dream.cookie ~decrypt:false ~secure:false request "XSRF-TOKEN"
-    in
-    match (header_token, cookie_token) with
-    | Some header, Some cookie -> (
+    match header_token with
+    | Some header -> (
         let+ check_result = Dream.verify_csrf_token request header in
-        match (check_result, String.equal cookie header) with
-        | `Ok, true -> Ok ()
-        | _ -> Error "Inavlid token")
-    | None, _ -> Lwt_result.fail "Missing X-Xsrf-Token header"
-    | _, None -> Lwt_result.fail "Missing XSRF cookie"
+        match check_result with `Ok -> Ok () | _ -> Error "Inavlid token")
+    | None -> Lwt_result.fail "Missing X-Xsrf-Token header"
   in
   match Dream.method_ request with
   (* Safe methods *)
