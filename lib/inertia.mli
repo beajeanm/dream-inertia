@@ -6,7 +6,13 @@ module Page : sig
     props : (string * Yojson.Safe.t) list;  (** The page props (data). *)
     deferred_props : deferred_prop list;  (** The page deferred props *)
     url : string;  (** The page URL. *)
+    merge_props : string list;
+    prepend_props : string list;
+    match_on : string list;
   }
+
+  val with_prop : t -> string * Yojson.Safe.t -> t
+  val with_defer_prop : t -> deferred_prop -> t
 end
 
 val defer :
@@ -16,6 +22,9 @@ val page :
   component:string ->
   ?props:(string * Yojson.Safe.t) list ->
   ?deferred_props:Page.deferred_prop list ->
+  ?merge_props:string list ->
+  ?prepend_props:string list ->
+  ?match_on:string list ->
   url:string ->
   unit ->
   Page.t
