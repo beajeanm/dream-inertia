@@ -1,7 +1,5 @@
 open Containers
 
-type t = { mutable version : string; mutable root_view : string -> string }
-
 module Page = struct
   type deferred_prop = {
     group : string;
@@ -18,12 +16,9 @@ module Page = struct
     prepend_props : string list;
     match_on : string list;
   }
-
-  let with_prop page prop = { page with props = prop :: page.props }
-
-  let with_defer_prop page defer =
-    { page with deferred_props = defer :: page.deferred_props }
 end
+
+type t = { mutable version : string; mutable root_view : string -> string }
 
 let config : t =
   {
@@ -44,6 +39,11 @@ let config : t =
   </body>
   |html});
   }
+
+let with_prop page prop = Page.{ page with props = prop :: page.props }
+
+let with_defer_prop page defer =
+  Page.{ page with deferred_props = defer :: page.deferred_props }
 
 let defer ?(group = "default") ~key callback = Page.{ group; key; callback }
 
