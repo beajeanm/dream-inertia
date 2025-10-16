@@ -4,6 +4,8 @@
 
 (generate_opam_files true)
 
+(implicit_transitive_deps false)
+
 (source
  (github beajeanm/dream-inertia))
 
@@ -28,6 +30,11 @@
    (>= 1.0.0~alpha8))
   (containers
    (>= 3.16))
+  (ptime
+   (>= 1.2.0))
+  (lwt
+   (>= 5.9.0))
+  ; Testing
   (alcotest :with-test)
   (alcotest-lwt :with-test)
   ; Dev tools

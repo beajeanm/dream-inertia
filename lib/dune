@@ -1,6 +1,6 @@
 (library
  (name dream_inertia)
  (public_name dream_inertia)
- (libraries dream yojson containers)
+ (libraries dream lwt yojson containers ptime.clock)
  (instrumentation
   (backend bisect_ppx)))
