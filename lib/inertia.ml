@@ -83,6 +83,7 @@ let classify_request request =
 
 let flash_key = "Inertia-errors"
 let shared_data_key = "Inertia-shared-data"
+let error_props_key = "errors"
 
 let flash_errors request =
   let open Option.Infix in
@@ -99,26 +100,30 @@ let add_error request key data =
     (Format.asprintf "%s.%s" flash_key key)
     (Yojson.Safe.to_string data)
 
-let shared_data request =
+let all_shared_data request =
   Dream.session_field request shared_data_key
   |> Option.map Yojson.Safe.from_string
   |> Option.map Yojson.Safe.Util.to_assoc
   |> Option.value ~default:[]
 
 let add_shared_data request key prop =
-  let current_data = shared_data request in
+  let current_data = all_shared_data request in
   let updated = List.Assoc.set ~eq:String.equal key prop current_data in
   Dream.set_session_field request shared_data_key
     (Yojson.Safe.to_string (`Assoc updated))
 
-let error_props_key = "errors"
+let get_shared_data request key =
+  let current_data = all_shared_data request in
+  List.Assoc.get ~eq:String.equal key current_data
+
+let flush_shared_data request = Dream.drop_session_field request shared_data_key
 
 let merge_data request page =
   let add_prop list (k, v) = List.Assoc.set ~eq:String.equal k v list in
   let props =
     add_prop page.Page.props (error_props_key, `Assoc (flash_errors request))
   in
-  let shared_data = shared_data request in
+  let shared_data = all_shared_data request in
   (* shared data will overwrite regular props. *)
   List.fold_left add_prop shared_data props
 

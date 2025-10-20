@@ -78,6 +78,17 @@ val add_shared_data : Dream.request -> string -> Yojson.Safe.t -> unit Lwt.t
     current user session.
     @see <https://inertiajs.com/shared-data> *)
 
+val get_shared_data : Dream.request -> string -> Yojson.Safe.t option
+(** [get_shared_data request key] return the shared data associated with that
+    key if it exists. *)
+
+val all_shared_data : Dream.request -> (string * Yojson.Safe.t) list
+(** [all_shared_data request] return all the shared data associated with the
+    current session. *)
+
+val flush_shared_data : Dream.request -> unit Lwt.t
+(** [flush_shared_data request] flush all the shared data. *)
+
 (** Helper module, it contains default implementation you may want to
     re-implement for your use cases. *)
 module Helper : sig
